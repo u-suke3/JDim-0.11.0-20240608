@@ -1,3 +1,8 @@
+> [!CAUTION]
+> 
+> **ここは、 http://github.com/JDimproved/JDim のコピーです。**
+> 
+
 # JDim - 2ch browser for linux
 
 ![GitHub Actions CI](https://github.com/JDimproved/JDim/workflows/CI/badge.svg)
