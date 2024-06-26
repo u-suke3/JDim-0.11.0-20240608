@@ -2,7 +2,7 @@ name: Test1 - C/C++ CI
 
 on:
   schedule:
-    - cron: "0 10 26 Jun *"
+    - cron: "15 10 26 Jun *"
 
 jobs:
   build:
