@@ -9,14 +9,15 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v4
-    - name: Install the toolchain and libraries.
+    - name: リポジトリをチェックアウト
+      uses: actions/checkout@v4
+    - name: ツールチェーンとライブラリをインストール
       run:  |
-        sudo apt update
-        sudo apt install build-essential git libgnutls28-dev libgtkmm-3.0-dev libltdl-dev meson
-    - name: Build Jdim (configure)
+        sudo apt-get --yes update
+        sudo apt-get --yes install build-essential git libgnutls28-dev libgtkmm-3.0-dev libltdl-dev meson
+    - name: JDimをビルド (meson)
       run: meson setup builddir
-    - name: Build Jdim (make)
+    - name: JDimをビルド (ninja)
       run: ninja -C builddir
-    - name: make check
+    - name: JDimの起動確認
       run: ./builddir/src/jdim -V
