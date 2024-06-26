@@ -1,8 +1,7 @@
 name: Test1 - C/C++ CI
 
 on:
-  schedule:
-    - cron: "15 10 26 Jun *"
+  workflow_dispatch:
 
 jobs:
   build:
