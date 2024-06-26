@@ -1,0 +1,23 @@
+name: Test1 - C/C++ CI
+
+on:
+  schedule:
+    - cron: "0 9 1 Jun *"
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+    - name: Install the toolchain and libraries.
+      run:  |
+        sudo apt update
+        sudo apt install build-essential git libgnutls28-dev libgtkmm-3.0-dev libltdl-dev meson
+    - name: Build Jdim (configure)
+      run: meson setup builddir
+    - name: Build Jdim (make)
+      run: ninja -C builddir
+    - name: make check
+      run: ./builddir/src/jdim -V
