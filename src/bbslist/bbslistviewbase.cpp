@@ -61,11 +61,11 @@ enum
 #define GET_PATH( row ) m_treestore->get_path( row )
 
 
-// ポップアップメニュー表示
-#define SHOW_POPUPMENU(slot) do{\
+/// @brief ポップアップメニューを指定位置に表示
+#define SHOW_POPUPMENU(position) do{\
 std::string url = path2url( m_path_selected ); \
 if( ! m_path_selected.empty() && url.empty() ) url = "dummy_url"; \
-show_popupmenu( url, slot ); \
+show_popupmenu( url, position ); \
 }while(0)
 
 
@@ -943,7 +943,7 @@ bool BBSListViewBase::operate_view( const int control )
             if( m_treeview.get_selection()->get_selected_rows().size() >= 1 ){
                 m_path_selected = * (m_treeview.get_selection()->get_selected_rows().begin() );
             }
-            SHOW_POPUPMENU(true);
+            SHOW_POPUPMENU( SKELETON::PopupMenuPosition::view_top_left );
             break;
         }
 
@@ -1200,7 +1200,7 @@ bool BBSListViewBase::slot_button_release( GdkEventButton* event )
     // 実行された場合は何もしない
     if( get_control().MG_wheel_end( event ) ) return true;
 
-    if( mg != CONTROL::None && enable_mg() ){
+    if( mg != CONTROL::NoOperation && enable_mg() ){
         operate_view( mg );
         return true;
     }
@@ -1220,7 +1220,9 @@ bool BBSListViewBase::slot_button_release( GdkEventButton* event )
     else if( get_control().button_alloted( event, CONTROL::OpenBoardTabButton ) ) operate_view( CONTROL::OpenBoardTabButton );
 
     // ポップアップメニューボタン
-    else if( get_control().button_alloted( event, CONTROL::PopupmenuButton ) ) SHOW_POPUPMENU( false );
+    else if( get_control().button_alloted( event, CONTROL::PopupmenuButton ) ) {
+        SHOW_POPUPMENU( SKELETON::PopupMenuPosition::mouse_pointer );
+    }
 
     // その他の操作
     else operate_view( get_control().button_press( event ) );
@@ -1336,7 +1338,7 @@ bool BBSListViewBase::slot_scroll_event( GdkEventScroll* event )
 {
     // ホイールマウスジェスチャ
     int control = get_control().MG_wheel_scroll( event );
-    if( enable_mg() && control != CONTROL::None ){
+    if( enable_mg() && control != CONTROL::NoOperation ){
         operate_view( control );
         return true;
     }
@@ -3538,4 +3540,20 @@ void BBSListViewBase::undo()
 void BBSListViewBase::redo()
 {
     m_treeview.redo();
+}
+
+
+/** @brief TreeView の項目のアイコンを再読み込みする
+ *
+ * @note Gio::ThemedIcon のアイコンで表示する TreeView の項目は「外部BBSMENU」に
+ * 限られているため SKELETON::EditTreeViewIterator ですべての row を巡回すると無駄が多い。
+ * 効率化のため TreeModel の巡回範囲を「外部BBSMENU」直下の項目に決め打ちしている。
+ */
+void BBSListViewBase::reload_list_icon()
+{
+    auto row = m_treeview.get_row( Gtk::TreePath( "0:0" ) );
+    for( ; row; ++row ) {
+        const int type = row[ m_columns.m_type ];
+        row[ m_columns.m_image ] = XML::get_icon( type );
+    }
 }

@@ -321,14 +321,17 @@ void DrawAreaBase::init_color()
         m_color[ i ] = Gdk::RGBA( CONFIG::get_color( i ) );
     }
 
-    // スレビューの選択色でgtkrcの設定を使用
+    // スレビューの文字色、背景色、選択色でGTKテーマの設定を使用する
     if( CONFIG::get_use_select_gtkrc() ){
-        const bool fg_ok = context->lookup_color( u8"theme_selected_fg_color", m_color[ COLOR_CHAR_SELECTION ] );
-        const bool bg_ok = context->lookup_color( u8"theme_selected_bg_color", m_color[ COLOR_BACK_SELECTION ] );
+        bool fg_ok = context->lookup_color( "theme_text_color", m_color[ COLOR_CHAR ] );
+        bool bg_ok = context->lookup_color( "theme_base_color", m_color[ COLOR_BACK ] );
         if( !fg_ok || !bg_ok ) {
-#ifdef _DEBUG
-            std::cout << "ERROR:DrawAreaBase::init_color lookup theme color failed." << std::endl;
-#endif
+            MISC::ERRMSG( "DrawAreaBase::init_color: Failed to retrieve GTK theme char colors." );
+        }
+        fg_ok = context->lookup_color( "theme_selected_fg_color", m_color[ COLOR_CHAR_SELECTION ] );
+        bg_ok = context->lookup_color( "theme_selected_bg_color", m_color[ COLOR_BACK_SELECTION ] );
+        if( !fg_ok || !bg_ok ) {
+            MISC::ERRMSG( "DrawAreaBase::init_color: Failed to retrieve GTK theme selected color." );
         }
     }
 
@@ -403,7 +406,7 @@ void DrawAreaBase::init_fontinfo( FONTINFO& fi, std::string& fontname )
     fi.height = fi.ascent + fi.descent;
 
     // 改行高さ ( トップからの距離 )
-    fi.br_size = ( int )( fi.height * CONFIG::get_adjust_line_space() );
+    fi.br_size = static_cast<int>( fi.height * CONFIG::get_adjust_line_space() );
 
     const char* wstr = "あいうえお";
     m_pango_layout->set_text( wstr );
@@ -891,7 +894,7 @@ bool DrawAreaBase::exec_layout_impl( const bool is_popup, const int offset_y )
 
         // div の位置と幅を計算
         // 高さは子ノードのレイアウトが全て済んでから計算
-        if( ! m_pixbuf_bkmk ) m_pixbuf_bkmk = ICON::get_icon( ICON::BKMARK_THREAD ); // 最低でもブックマークのアイコン分だけ左のスペース開ける
+        if( ! m_pixbuf_bkmk ) m_pixbuf_bkmk = ICON::get_pixbuf( ICON::BKMARK_THREAD ); // 最低でもブックマークのアイコン分だけ左のスペース開ける
         int x = MAX( 1 + m_pixbuf_bkmk->get_width() + 1, m_css_body.padding_left + header->css->mrg_left );
         y += header->css->mrg_top;
 
@@ -1571,10 +1574,10 @@ int DrawAreaBase::get_width_of_one_char( const char* utfstr, int& byte, char& pr
     if( ! byte ){
 #ifdef _DEBUG
         std::cout << "DrawAreaBase::get_width_of_one_char "
-                  << "invalid char " << (unsigned char)utfstr[ 0 ]
-                  << " " << (unsigned char)utfstr[ 1 ]
-                  << " " << (unsigned char)utfstr[ 2 ]
-                  << " " << (unsigned char)utfstr[ 3 ] << std::endl;
+                  << "invalid char " << static_cast<unsigned char>(utfstr[ 0 ])
+                  << " " << static_cast<unsigned char>(utfstr[ 1 ])
+                  << " " << static_cast<unsigned char>(utfstr[ 2 ])
+                  << " " << static_cast<unsigned char>(utfstr[ 3 ]) << std::endl;
 #endif
         byte = 1;
         return 0;
@@ -1646,7 +1649,7 @@ int DrawAreaBase::get_width_of_one_char( const char* utfstr, int& byte, char& pr
 #ifdef _DEBUG
             std::cout << "DrawAreaBase::get_width_of_one_char "
                       << "byte = " << byte
-                      << " code = " << code
+                      << " code = " << MISC::utf32tostr( code )
                       << " [" << tmpchar << "]\n";
 #endif
 
@@ -1654,7 +1657,8 @@ int DrawAreaBase::get_width_of_one_char( const char* utfstr, int& byte, char& pr
                 && ( code < 0xF0000 || code > 0x10FFFF ) // 私用面ではない
               ){
                 std::stringstream ss_err;
-                ss_err << "unknown font byte = " << byte << " ucs = " << code << " width = " << width;
+                ss_err << "unknown font byte = " << byte << " utf32 = " << MISC::utf32tostr( code )
+                       << " width = " << width;
 
                 MISC::ERRMSG( ss_err.str() );
             }
@@ -2071,7 +2075,7 @@ bool DrawAreaBase::draw_one_node( LAYOUT* layout, const CLIPINFO& ci )
                 // ブックマークのマーク描画
                 if( m_article->is_bookmarked( layout->res_number ) ){
 
-                    if( ! m_pixbuf_bkmk ) m_pixbuf_bkmk = ICON::get_icon( ICON::BKMARK_THREAD );
+                    if( ! m_pixbuf_bkmk ) m_pixbuf_bkmk = ICON::get_pixbuf( ICON::BKMARK_THREAD );
                     const int height_bkmk = m_pixbuf_bkmk->get_height();
 
                     y += ( m_font->height - height_bkmk ) / 2;
@@ -2092,7 +2096,7 @@ bool DrawAreaBase::draw_one_node( LAYOUT* layout, const CLIPINFO& ci )
                     // 書き込みのマーク表示
                     if( m_article->is_posted( layout->res_number ) ){
 
-                        if( ! m_pixbuf_post ) m_pixbuf_post = ICON::get_icon( ICON::POST );
+                        if( ! m_pixbuf_post ) m_pixbuf_post = ICON::get_pixbuf( ICON::POST );
                         const int height_post = m_pixbuf_post->get_height();
 
                         if( y == y_org ) y += ( m_font->height - height_post ) / 2;
@@ -2111,7 +2115,7 @@ bool DrawAreaBase::draw_one_node( LAYOUT* layout, const CLIPINFO& ci )
                     // 自分の書き込みに対するレスのマーク表示
                     if( m_article->is_refer_posted( layout->res_number ) ){
 
-                        if( ! m_pixbuf_refer_post ) m_pixbuf_refer_post = ICON::get_icon( ICON::POST_REFER );
+                        if( ! m_pixbuf_refer_post ) m_pixbuf_refer_post = ICON::get_pixbuf( ICON::POST_REFER );
                         const int height_refer_post = m_pixbuf_refer_post->get_height();
 
                         if( y == y_org ) y += ( m_font->height - height_refer_post ) / 2;
@@ -3043,7 +3047,7 @@ bool DrawAreaBase::set_scroll( const int control )
         if( std::abs( dy ) > std::numeric_limits<double>::epsilon() ){
 
             m_scrollinfo.reset();
-            m_scrollinfo.dy = ( int ) dy;
+            m_scrollinfo.dy = static_cast<int>(dy);
 
             // キーを押しっぱなしにしてる場合スクロールロックする
             if( m_key_locked ) m_scrollinfo.mode = SCROLL_LOCKED;
@@ -3083,7 +3087,7 @@ void DrawAreaBase::wheelscroll( GdkEventScroll* event )
 
             const auto adjust = m_vscrbar->get_adjustment();
 
-            const int current_y = ( int ) adjust->get_value();
+            const int current_y = static_cast<int>(adjust->get_value());
             if( event->direction == GDK_SCROLL_UP && current_y == 0 ) return;
             if( event->direction == GDK_SCROLL_DOWN
                     && current_y == static_cast<int>( adjust->get_upper() - adjust->get_page_size() ) ) return;
@@ -3094,8 +3098,12 @@ void DrawAreaBase::wheelscroll( GdkEventScroll* event )
             // ホイールのスクロールの場合は必ずスクロール処理を実施する
             m_wait_scroll = Monotonic::duration::zero();
 
-            if( event->direction == GDK_SCROLL_UP ) m_scrollinfo.dy = -( int ) adjust->get_step_increment() * speed;
-            else if( event->direction == GDK_SCROLL_DOWN ) m_scrollinfo.dy = ( int ) adjust->get_step_increment() * speed;
+            if( event->direction == GDK_SCROLL_UP ) {
+                m_scrollinfo.dy = -static_cast<int>(adjust->get_step_increment()) * speed;
+            }
+            else if( event->direction == GDK_SCROLL_DOWN ) {
+                m_scrollinfo.dy = static_cast<int>(adjust->get_step_increment()) * speed;
+            }
             else if( event->direction == GDK_SCROLL_SMOOTH ) {
                 constexpr double smooth_scroll_factor = 4.0;
                 m_smooth_dy += smooth_scroll_factor * event->delta_y;
@@ -3167,7 +3175,7 @@ void DrawAreaBase::exec_scroll()
     // 移動後のスクロール位置を計算
     int y = 0;
     auto adjust = m_vscrbar->get_adjustment();
-    const int current_y = ( int ) adjust->get_value();
+    const int current_y = static_cast<int>(adjust->get_value());
 
     switch( m_scrollinfo.mode ){
 
@@ -3191,7 +3199,7 @@ void DrawAreaBase::exec_scroll()
 
         // 最後に移動
         case SCROLL_TO_BOTTOM:
-            y = (int) adjust->get_upper();
+            y = static_cast<int>(adjust->get_upper());
             m_scrollinfo.reset();
             redraw_all = true;
             break;
@@ -3238,7 +3246,7 @@ void DrawAreaBase::exec_scroll()
                 if( m_drugging ) dy *= 4;  // 範囲選択中ならスピード上げる
             }
 
-            y = current_y -( int ) dy;
+            y = current_y - static_cast<int>(dy);
 
             // 範囲選択中ならキャレット移動して選択範囲更新
             if( m_drugging ){
@@ -3259,7 +3267,7 @@ void DrawAreaBase::exec_scroll()
                 if( m_scrollinfo.live_speed < CONFIG::get_live_threshold() ){
 
                     const int mode = CONFIG::get_live_mode();
-                    if( mode == LIVE_SCRMODE_VARIABLE ) y = ( int ) ( current_y + m_scrollinfo.live_speed );
+                    if( mode == LIVE_SCRMODE_VARIABLE ) y = static_cast<int>( current_y + m_scrollinfo.live_speed );
                     else if( mode == LIVE_SCRMODE_STEADY ) y = current_y + CONFIG::get_live_speed();
                 }
 
@@ -3274,7 +3282,7 @@ void DrawAreaBase::exec_scroll()
 
                     // スクロール中
                     if( m_scrollinfo.live_counter <= step_move ){
-                        y = ( int ) ( current_y + step );
+                        y = static_cast<int>( current_y + step );
                     }
 
                     // 停止中
@@ -3353,7 +3361,7 @@ void DrawAreaBase::exec_scroll()
 //
 int DrawAreaBase::get_vscr_val() const
 {
-    if( m_vscrbar ) return ( int ) m_vscrbar->get_adjustment()->get_value();
+    if( m_vscrbar ) return static_cast<int>(m_vscrbar->get_adjustment()->get_value());
     return 0;
 }
 
@@ -3363,8 +3371,8 @@ int DrawAreaBase::get_vscr_val() const
 //
 int DrawAreaBase::get_vscr_maxval() const
 {
-    if( m_vscrbar ) return ( int ) ( m_vscrbar->get_adjustment()->get_upper()
-                                     - m_vscrbar->get_adjustment()->get_page_size() );
+    if( m_vscrbar ) return static_cast<int>( m_vscrbar->get_adjustment()->get_upper()
+                                             - m_vscrbar->get_adjustment()->get_page_size() );
     return 0;
 }
 
@@ -3450,11 +3458,16 @@ void DrawAreaBase::goto_next_res()
 //
 void DrawAreaBase::goto_pre_res()
 {
+    if( m_seen_current == 0 ) {
+        goto_top();
+        return;
+    }
+
     // 表示するレスを検索
     const LAYOUT* header;
     int num = m_seen_current;
     int pos_y = get_vscr_val();
-    do{ header = m_layout_tree->get_header_of_res_const( --num ); } while( num && ( ! header || header->rect->y >= pos_y ) );
+    do{ header = m_layout_tree->get_header_of_res_const( --num ); } while( 0 < num && ( ! header || header->rect->y >= pos_y ) );
     goto_num( num );
 }
 
@@ -3667,6 +3680,7 @@ int DrawAreaBase::search( const std::list< std::string >& list_query, const bool
                     // 選択設定
                     SELECTION selection;
                     selection.select = false;
+                    selection.click_pos = SELECTION::ClickPosition::unknown;
                     selection.caret_from.set( layout_from, offset_from );
                     selection.caret_to.set( layout_to, offset_to );
                     m_multi_selection.push_back( selection );
@@ -3732,22 +3746,53 @@ int DrawAreaBase::search_move( const bool reverse )
     if( it != m_multi_selection.end() ){
         it->select = false;
 
+        // NOTE: マウスクリックして検索開始位置を変更したときは、 slot_button_press_event() で
+        // SELECTION::select を変更するだけでは自然な移動にならないため移動先を補正します。
+        // - 「前検索」ではキャレット位置の前にある検索結果へ移動します。
+        // - 「次検索」ではキャレット位置の後にある検索結果へ移動します。
+
+        // クリックして選択を変更したときの位置情報を一時変数に移してリセットします。
+        const SELECTION::ClickPosition click_pos = it->click_pos;
+        it->click_pos = SELECTION::ClickPosition::unknown;
+
         // 前に移動
         if( reverse ){
+            // マウスクリックした位置がヒットとヒットの間なら、
+            // slot_button_press_event() で一つ戻してあるので下のデクリメントを打ち消します。
+            // ヒットの上(on_hit)にある場合は、前の検索結果に移動します。
+            if( click_pos == SELECTION::ClickPosition::between_hits ) {
+                ++it;
+            }
+
             if( it == m_multi_selection.begin() ) it = m_multi_selection.end();
             --it;
         }
 
         // 次に移動
         else{
-            if( ( ++it ) == m_multi_selection.end() ) it = m_multi_selection.begin();
+            // マウスクリックした位置が先頭のヒットより前でないなら、次の検索結果に移動します。
+            if( click_pos != SELECTION::ClickPosition::before_first_hit ) {
+                ++it;
+            }
+
+            if( it == m_multi_selection.end() ) it = m_multi_selection.begin();
         }
 
         it->select = true;
 
         // 移動先を範囲選択状態にする
-        m_caret_pos_dragstart = it->caret_from;
-        set_selection( it->caret_to );
+        if( m_caret_pos != it->caret_to ) {
+            m_caret_pos_dragstart = it->caret_from;
+            set_selection( it->caret_to );
+        }
+        else {
+            // m_caret_pos == it->caret_to のときに上記の引数で呼び出すと、
+            // 前回の呼び出しからキャレット位置が変わないため選択できません。
+            // そのため、引数を逆にして呼び出します。
+            m_caret_pos_dragstart = it->caret_to;
+            set_selection( it->caret_from );
+            m_caret_pos_dragstart = it->caret_from;
+        }
 
         const int y = MAX( 0, it->caret_from.layout->rect->y - 10 );
 
@@ -3771,6 +3816,46 @@ int DrawAreaBase::search_move( const bool reverse )
 }
 
 
+/** @brief 引数のキャレット位置に合わせて検索開始位置を更新します。
+ *
+ * @param[in] caret_pos 検索開始位置にするキャレット位置
+ */
+void DrawAreaBase::update_search_start_position( const CARET_POSITION& caret_pos )
+{
+    if( m_multi_selection.empty() ) return;
+
+    // 現在選択中の検索結果の情報をリセットします。
+    // XXX: 後続の find_if() とループをまとめたほうが良いか？
+    auto it = std::find_if( m_multi_selection.begin(), m_multi_selection.end(),
+                            []( const SELECTION& s ) { return s.select; } );
+    if( it != m_multi_selection.end() ) {
+        it->select = false;
+        it->click_pos = SELECTION::ClickPosition::unknown;
+    }
+
+    // 新しいキャレット位置より後ろにある検索結果を探します。
+    it = std::find_if( m_multi_selection.begin(), m_multi_selection.end(),
+                       [&caret_pos]( const SELECTION& s ) { return caret_pos < s.caret_from; } );
+    if( it == m_multi_selection.begin() ) {
+        // 先頭のヒットより前にキャレットがあります。
+        it->click_pos = SELECTION::ClickPosition::before_first_hit;
+    }
+    else {
+        // 先頭のヒット以降にキャレットがあるときは一つ戻して選択します。
+        --it;
+        if( ! ( it->caret_to < caret_pos ) ) {
+            // ヒットの上にキャレットがあります。
+            it->click_pos = SELECTION::ClickPosition::on_hit;
+        }
+        else {
+            // ヒットとヒットの間にキャレットがあります。
+            it->click_pos = SELECTION::ClickPosition::between_hits;
+        }
+    }
+    it->select = true;
+}
+
+
 //
 // ハイライト解除
 //
@@ -3778,6 +3863,17 @@ void DrawAreaBase::clear_highlight()
 {
     m_multi_selection.clear();
     redraw_view_force();
+}
+
+
+/**
+ * @brief キャレットの位置をリセットします。
+ */
+void DrawAreaBase::reset_caret_position()
+{
+    m_caret_pos = CARET_POSITION();
+    m_caret_pos_pre = CARET_POSITION();
+    m_caret_pos_dragstart = CARET_POSITION();
 }
 
 
@@ -4194,7 +4290,7 @@ bool DrawAreaBase::set_carets_dclick( CARET_POSITION& caret_left, CARET_POSITION
                 const char32_t uch_pointer = MISC::utf8toutf32( layout->text + pos, byte_char_pointer );
                 const MISC::UnicodeBlock block_pointer = MISC::get_unicodeblock( uch_pointer );
 #ifdef _DEBUG
-                std::cout << "utf32 = " << std::hex << uch_pointer << std::dec
+                std::cout << "utf32 = " << MISC::utf32tostr( uch_pointer )
                           << " type = " << static_cast<int>( block_pointer ) << " pos = " << pos << std::endl;
 #endif
 
@@ -4866,8 +4962,8 @@ bool DrawAreaBase::slot_button_press_event( GdkEventButton* event )
     if( m_layout_current ) res_num = m_layout_current->res_number;
 
     const int pos = get_vscr_val();
-    const int x = ( int ) event->x;
-    const int y = ( int ) event->y + pos;
+    const int x = static_cast<int>(event->x);
+    const int y = static_cast<int>(event->y) + pos;
 
     CARET_POSITION caret_pos;
     set_caret( caret_pos, x, y );
@@ -4889,6 +4985,9 @@ bool DrawAreaBase::slot_button_press_event( GdkEventButton* event )
 
         // 範囲選択解除、及びドラッグ開始
         if( m_control.button_alloted( event, CONTROL::ClickButton ) ){
+
+            // 引数のキャレット位置に合わせて検索開始位置を更新します。
+            update_search_start_position( caret_pos );
 
             m_drugging = true;
             m_selection.select = false;
@@ -4917,8 +5016,8 @@ bool DrawAreaBase::slot_button_press_event( GdkEventButton* event )
                 m_scrollinfo.show_marker = true;
                 m_scrollinfo.enable_up = true;
                 m_scrollinfo.enable_down = true;
-                m_scrollinfo.x = ( int ) event->x;
-                m_scrollinfo.y = ( int ) event->y;
+                m_scrollinfo.x = static_cast<int>(event->x);
+                m_scrollinfo.y = static_cast<int>(event->y);
             }
         }
 
@@ -4961,8 +5060,8 @@ bool DrawAreaBase::slot_button_release_event( GdkEventButton* event )
     // slot_motion_notify_eventが呼び出されず m_layout_current が変わらないため
     // リンクを開いてしまう
     CARET_POSITION caret_pos;
-    m_x_pointer = ( int ) event->x;
-    m_y_pointer = ( int ) event->y;
+    m_x_pointer = static_cast<int>(event->x);
+    m_y_pointer = static_cast<int>(event->y);
     m_layout_current = set_caret( caret_pos, m_x_pointer , m_y_pointer + get_vscr_val() );
 
     std::string url;
@@ -5017,10 +5116,10 @@ bool DrawAreaBase::slot_button_release_event( GdkEventButton* event )
 //
 bool DrawAreaBase::slot_motion_notify_event( GdkEventMotion* event )
 {
-    if( m_x_pointer == ( int ) event->x && m_y_pointer == ( int ) event->y ) return true;
+    if( m_x_pointer == static_cast<int>(event->x) && m_y_pointer == static_cast<int>(event->y) ) return true;
 
-    m_x_pointer = ( int ) event->x;
-    m_y_pointer = ( int ) event->y;
+    m_x_pointer = static_cast<int>(event->x);
+    m_y_pointer = static_cast<int>(event->y);
 
     // ホイールスクロール終了直後はある程度マウスを動かすまでモーションイベントをキャンセル
     if( m_scrollinfo.counter_nomotion ){
@@ -5097,7 +5196,7 @@ bool DrawAreaBase::motion_mouse()
     if( m_drugging ){
 
         // ポインタが画面外に近かったらオートスクロールを開始する
-        const int mrg = ( int )( (double)m_font->br_size*0.5 );
+        const int mrg = static_cast<int>( static_cast<double>(m_font->br_size) * 0.5 );
 
         // スクロールのリセット
         if (

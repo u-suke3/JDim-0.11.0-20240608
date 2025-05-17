@@ -24,6 +24,18 @@ namespace ENVIRONMENT
         unknown
     };
 
+    /** @brief ディスプレイサーバーの種類
+     *
+     *  @note この列挙型は数値として意味を持たないため、大小の比較は未定義とする。
+     */
+    enum class DisplayType
+    {
+        wayland,
+        x11,
+        broadway,
+        unknown,
+    };
+
     // configure_argsのモード
     enum
 	{
@@ -40,6 +52,7 @@ namespace ENVIRONMENT
 	std::string get_jdhelp();
 	std::string get_jdhelpcmd();
 	std::string get_jdhelpreplstr();
+	std::string get_jdhelpimghash();
     std::string get_jdlicense();
     std::string get_configure_args( const int mode = CONFIGURE_OMITTED );
 
@@ -47,6 +60,8 @@ namespace ENVIRONMENT
     std::string get_distname();
     DesktopType get_wm();
     std::string get_wm_str();
+    const char* get_display_str();
+    DisplayType get_display_type();
 	std::string get_gtkmm_version();
 	std::string get_glibmm_version();
     std::string get_tlslib_version();

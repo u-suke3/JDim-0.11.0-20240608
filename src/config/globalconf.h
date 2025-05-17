@@ -47,6 +47,24 @@ namespace CONFIG
     const std::string& get_color( const int id );
     void set_color( const int id, const std::string& color );
     void reset_colors();
+    void reset_colors_dark_theme();
+    void update_view_colors();
+
+    // GTKテーマの名前
+    const std::string& get_gtk_theme_name();
+    void set_gtk_theme_name( const std::string& name );
+
+    // ダークテーマを使用するか
+    bool get_use_dark_theme();
+    void set_use_dark_theme( const bool use );
+
+    // アイコンテーマの名前
+    const std::string& get_gtk_icon_theme_name();
+    void set_gtk_icon_theme_name( const std::string& name );
+
+    // シンボリックアイコンを使用するか
+    bool get_use_symbolic_icon();
+    void set_use_symbolic_icon( const bool use );
 
     // 書き込みビューでGTKテーマの設定を使用するか (GTK3版のみ)
     bool get_use_message_gtktheme();
@@ -56,7 +74,7 @@ namespace CONFIG
     bool get_use_tree_gtkrc();
     void set_use_tree_gtkrc( const bool use );
 
-    // スレビューの選択色でgtkrcの設定を使用するか
+    // スレビューの文字色、背景色、選択色でGTKテーマの設定を使用するか
     bool get_use_select_gtkrc();
     void set_use_select_gtkrc( const bool use );
 

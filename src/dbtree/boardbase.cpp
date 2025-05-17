@@ -1146,7 +1146,8 @@ void BoardBase::receive_finish()
         send_update_board();
 
         // Locationヘッダーで移転先を指定された場合
-        if( ( get_code() == HTTP_MOVED_PERM || get_code() == HTTP_REDIRECT ) && ! location().empty() ) {
+        if( ( get_code() == HTTP_MOVED_PERM || get_code() == HTTP_REDIRECT || get_code() == HTTP_PERMANENT_REDIRECT )
+                && ! location().empty() ) {
 
             // location() は url_boardbase() の移転先 (start_checkking_if_board_moved() を参照)
             if( DBTREE::move_board( url_boardbase(), location() ) ) {
@@ -1231,7 +1232,7 @@ void BoardBase::receive_finish()
         // ちなみにdatの読み込みでリダイレクト(302)が返ってきたときは、移転かdat落ちか判断出来ないので注意
         // NodeTree2ch::receive_finish()も参照せよ
         //
-        if( get_code() == HTTP_REDIRECT || get_code() == HTTP_MOVED_PERM ){
+        if( get_code() == HTTP_MOVED_PERM || get_code() == HTTP_REDIRECT || get_code() == HTTP_PERMANENT_REDIRECT ) {
 
             set_date_modified( std::string() );
 
@@ -1554,7 +1555,7 @@ bool BoardBase::is_abone_thread( ArticleBase* article )
     // スレ立てからの時間であぼーん
     if( check_hour ) if( article->get_hour() >= check_hour ) return true;
     
-    // スレあぼーん
+    // スレあぼーんは、未変換のスレタイトルで完全一致するかチェックします。
     if( check_thread ){
         auto it = std::find_if( m_list_abone_thread.cbegin(), m_list_abone_thread.cend(),
                                 [a = article](const std::string& subj) { return a->get_subject() == subj; } );
@@ -1774,8 +1775,12 @@ void BoardBase::reset_abone_thread( const std::list< std::string >& threads,
 
     // 前後の空白と空白行を除く
 
-    m_list_abone_thread = MISC::remove_space_from_list( threads );
-    m_list_abone_thread = MISC::remove_nullline_from_list( m_list_abone_thread );
+    m_list_abone_thread.clear();
+    for( const std::string& th : threads ) {
+        // NG スレタイトルの登録時に、先頭と末尾のASCIIの空白文字のみ削除し、全角空白は保持する。`
+        std::string tmp_th = MISC::ascii_trim( th );
+        if( ! tmp_th.empty() ) m_list_abone_thread.push_back( std::move( tmp_th ) );
+    }
 
     m_list_abone_word_thread = MISC::remove_space_from_list( words );
     m_list_abone_word_thread = MISC::remove_nullline_from_list( m_list_abone_word_thread );

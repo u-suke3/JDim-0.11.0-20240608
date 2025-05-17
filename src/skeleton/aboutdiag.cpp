@@ -36,7 +36,7 @@ AboutDiag::AboutDiag( const Glib::ustring& title )
 
     set_default_response( Gtk::RESPONSE_CLOSE );
 
-    set_logo( ICON::get_icon( ICON::JD96 ) );
+    set_logo( ICON::get_pixbuf( ICON::JD96 ) );
     set_version( ENVIRONMENT::get_jdversion() );
     set_comments( ENVIRONMENT::get_jdcomments() );
     set_website( CONFIG::get_url_jdimhp() );
@@ -300,7 +300,7 @@ void AboutDiag::set_environment_list()
 
     row = *( liststore->append() );
     row[ column_name ] = "デスクトップ環境等";
-    row[ column_value ] = ENVIRONMENT::get_wm_str();
+    row[ column_value ] = ENVIRONMENT::get_wm_str() + ENVIRONMENT::get_display_str();
 
     row = *( liststore->append() );
     row[ column_name ] = "gtkmmのバージョン";

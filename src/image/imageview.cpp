@@ -569,5 +569,11 @@ bool ImageViewMain::operate_view( const int control )
         else cntl = CONTROL::OrgSizeImage;
     }
 
+    if( cntl == CONTROL::ShowPopupMenu ) {
+        // ポップアップメニューをビューの左上に表示
+        show_popupmenu( "", SKELETON::PopupMenuPosition::view_top_left );
+        return true;
+    }
+
     return ImageViewBase::operate_view( cntl );
 }

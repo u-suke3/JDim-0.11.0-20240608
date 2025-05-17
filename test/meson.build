@@ -2,6 +2,7 @@
 
 # Add test code source files to following list.
 sources = [
+  'gtest_dbimg_imgroot.cpp',
   'gtest_dbtree_nodetreebase.cpp',
   'gtest_dbtree_root.cpp',
   'gtest_dbtree_spchar_decoder.cpp',
@@ -26,7 +27,7 @@ deps = [
 
 
 test_exe = executable(
-  'gtest_jdim', [buildinfo_h, core_sources, sources],
+  'gtest_jdim', [buildinfo_h, sources],
   dependencies : deps,
   include_directories : jdim_incs,
   link_with : jdim_libs,

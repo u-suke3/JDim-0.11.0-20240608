@@ -13,6 +13,8 @@
 #include "control/controlid.h"
 #include "control/controlutil.h"
 
+#include "icons/iconmanager.h"
+
 #include "fontcolorpref.h"
 #include "colorid.h"
 #include "fontid.h"
@@ -30,9 +32,38 @@ FontColorPref::FontColorPref( Gtk::Window* parent, const std::string& url )
     , m_label_aafont{ "AAレスと判定する正規表現(_R):", true }
     , m_bt_reset_font{ "フォントの設定を全てデフォルトに戻す(_F)", true }
 
+    , m_label_reset_color{ "選択行の色をデフォルトに戻す:", false }
     , m_bt_change_color{ "選択行の色を設定する(_S)", true }
-    , m_bt_reset_color{ "選択行の色をデフォルトに戻す(_R)", true }
-    , m_bt_reset_all_colors{ "色の設定を全てデフォルトに戻す(_C)", true }
+    , m_bt_reset_color{ "ライト(_R)", true }
+    , m_bt_reset_color_dark{ "ダーク(_A)", true }
+    , m_hbox_reset_all_colors{ Gtk::ORIENTATION_HORIZONTAL, 8 }
+    , m_label_reset_all_colors{ "色の設定を全てデフォルトに戻す:", false }
+    , m_bt_reset_all_colors{ "ライトテーマ(_D)", true }
+    , m_bt_reset_all_colors_dark{ "ダークテーマ(_K)", true }
+
+    , m_label_gtk_theme{ "GTKテーマ(_T):", true }
+    , m_check_system_theme{ "システム設定のGTKテーマを使う(_S)（再起動後に有効になります）", true }
+    , m_label_dark_theme{ "ダークテーマ:", false }
+    , m_check_dark_theme{ "ダークテーマで表示する(_D)", true }
+
+    , m_label_icon_theme{ "アイコンテーマ(_I):", true }
+    , m_check_system_icon{ "システム設定のアイコンテーマを使う(_Y)（再起動後に有効になります）", true }
+    , m_label_use_symbolic_icon{ "スタイル:", false }
+    , m_check_use_symbolic_icon{ "シンボリックアイコンで表示する(_M)", true }
+
+    , m_label_note{ "　「GTKテーマ」や「アイコンテーマ」をシステム設定に変更するときは、"
+                    "アプリケーションの再起動が必要です。\n\n"
+                    "　環境変数 GTK_THEME を設定して起動した場合、アプリケーション側の"
+                    "GTKテーマ設定は上書きされるため、テーマの変更はできません。\n\n"
+                    "　一部のGTKテーマはダークテーマに対応していないため、"
+                    "「ダークテーマで表示する」の効果がない場合があります。"
+                    "その場合は、ダークテーマに対応したGTKテーマを設定してください。\n\n"
+                    "　アイコンテーマによっては、カラーアイコンかシンボリックアイコンの"
+                    "どちらかにしか対応していないため、「シンボリックアイコンで表示する」"
+                    "設定を切り替えても、アイコンが変わらない場合があります。\n\n"
+                    "　書き込みビュー、ツリービュー、スレビューの選択範囲をGTKテーマの配色にするには"
+                    "「色の設定」タブで設定を切り替えます。"
+                    , false }
 {
     CONFIG::bkup_conf();
 
@@ -49,6 +80,7 @@ FontColorPref::FontColorPref( Gtk::Window* parent, const std::string& url )
 
     // 色設定をセット
     set_color_settings( COLOR_NONE, "■ " + CONTROL::get_mode_label( CONTROL::MODE_COMMON ), "" );
+    set_color_settings( COLOR_CHAR_HIGHLIGHT_TREE, "板、スレ一覧での検索結果などのハイライトの文字色", CONF_COLOR_CHAR_HIGHLIGHT_TREE );
     set_color_settings( COLOR_BACK_HIGHLIGHT_TREE, "板、スレ一覧での検索結果などのハイライトの背景色", CONF_COLOR_BACK_HIGHLIGHT_TREE );
 
     set_color_settings( COLOR_NONE, "", "" );
@@ -102,6 +134,63 @@ FontColorPref::FontColorPref( Gtk::Window* parent, const std::string& url )
     m_fontbutton.set_font_name( CONFIG::get_fontname( m_font_tbl[ 0 ] ) );
     m_event_font.set_tooltip_text( m_tooltips_font[ 0 ] );
     m_fontbutton.set_tooltip_text( m_tooltips_font[ 0 ] );
+
+    // GTKテーマの追加
+    const auto gtk_theme_names = ICON::get_installed_gtk_theme_names();
+    for( const std::string& name : gtk_theme_names ) {
+        m_combo_theme.append( name, name );
+    }
+
+    // アイコンテーマの追加
+    const auto icon_names = ICON::get_installed_icon_theme_names();
+    for( const std::string& name : icon_names ) {
+        m_combo_icon.append( name, name );
+    }
+
+    m_check_system_icon.set_active( CONFIG::get_gtk_icon_theme_name().empty() );
+    m_check_use_symbolic_icon.set_active( CONFIG::get_use_symbolic_icon() );
+
+    if( auto env_theme = Glib::getenv( "GTK_THEME" ); ! env_theme.empty() ) {
+        m_combo_theme.set_tooltip_text( "環境変数 GTK_THEME が設定されているため変更できません。" );
+        m_check_system_theme.set_tooltip_text( "環境変数 GTK_THEME が設定されているため変更できません。" );
+        m_check_dark_theme.set_tooltip_text( "環境変数 GTK_THEME が設定されているため変更できません。" );
+
+        m_check_system_theme.set_active( false );
+
+        m_combo_theme.set_sensitive( false );
+        m_check_system_theme.set_sensitive( false );
+        m_check_dark_theme.set_sensitive( false );
+
+        if( const auto sep = env_theme.find( ':' );  sep != std::string::npos ) {
+            m_check_dark_theme.set_active( env_theme.compare( sep, 5, ":dark" ) == 0 );
+            env_theme.resize( sep );
+        }
+        else {
+            m_check_dark_theme.set_active( false );
+        }
+        m_combo_theme.set_active_text( env_theme );
+    }
+    else {
+        m_check_system_theme.set_active( CONFIG::get_gtk_theme_name().empty() );
+        m_check_dark_theme.set_active( CONFIG::get_use_dark_theme() );
+
+        // ComboBoxText に内容を追加した後でバインドしないとデスクトップのシステム設定と同期しない
+        m_binding_theme = Glib::Binding::bind_property( Gtk::Settings::get_default()->property_gtk_theme_name(),
+                                                        m_combo_theme.property_active_id(),
+                                                        Glib::BINDING_BIDIRECTIONAL | Glib::BINDING_SYNC_CREATE );
+        m_binding_system = Glib::Binding::bind_property( m_check_system_theme.property_active(),
+                                                         m_combo_theme.property_sensitive(),
+                                                         Glib::BINDING_INVERT_BOOLEAN | Glib::BINDING_SYNC_CREATE );
+        m_binding_dark = Glib::Binding::bind_property(
+            Gtk::Settings::get_default()->property_gtk_application_prefer_dark_theme(),
+            m_check_dark_theme.property_active(), Glib::BINDING_BIDIRECTIONAL | Glib::BINDING_SYNC_CREATE );
+    }
+    m_binding_icon = Glib::Binding::bind_property( Gtk::Settings::get_default()->property_gtk_icon_theme_name(),
+                                                   m_combo_icon.property_active_id(),
+                                                   Glib::BINDING_BIDIRECTIONAL | Glib::BINDING_SYNC_CREATE );
+    m_binding_system_icon = Glib::Binding::bind_property( m_check_system_icon.property_active(),
+                                                          m_combo_icon.property_sensitive(),
+                                                          Glib::BINDING_INVERT_BOOLEAN | Glib::BINDING_SYNC_CREATE );
 
     set_title( "フォントと色の詳細設定" );
     // ウインドウの自然なサイズを設定するがディスプレイに合わせて調整される
@@ -232,9 +321,12 @@ void FontColorPref::pack_widget()
 
     m_bt_change_color.signal_clicked().connect( sigc::mem_fun( *this, &FontColorPref::slot_change_color ) );
     m_bt_reset_color.signal_clicked().connect( sigc::mem_fun( *this, &FontColorPref::slot_reset_color ) );
+    m_bt_reset_color_dark.signal_clicked().connect( sigc::mem_fun( *this, &FontColorPref::slot_reset_color_dark ) );
 
     m_hbox_change_color.set_spacing( mrg );
+    m_hbox_change_color.pack_end( m_bt_reset_color_dark, Gtk::PACK_SHRINK );
     m_hbox_change_color.pack_end( m_bt_reset_color, Gtk::PACK_SHRINK );
+    m_hbox_change_color.pack_end( m_label_reset_color, Gtk::PACK_SHRINK );
     m_hbox_change_color.pack_end( m_bt_change_color , Gtk::PACK_SHRINK );
     m_vbox_color.pack_start( m_hbox_change_color, Gtk::PACK_SHRINK );
 
@@ -242,11 +334,11 @@ void FontColorPref::pack_widget()
     m_chk_use_gtktheme_message.set_active( CONFIG::get_use_message_gtktheme() );
     m_vbox_color.pack_start( m_chk_use_gtktheme_message, Gtk::PACK_SHRINK );
 
-    m_chk_use_gtkrc_tree.add_label( "ツリービューの背景色設定に gtkrc を用いる(_T)", true ),
+    m_chk_use_gtkrc_tree.add_label( "ツリービューの背景色設定に GTKテーマ を用いる(_T)", true ),
     m_chk_use_gtkrc_tree.set_active( CONFIG::get_use_tree_gtkrc() );
     m_vbox_color.pack_start( m_chk_use_gtkrc_tree, Gtk::PACK_SHRINK );
 
-    m_chk_use_gtkrc_selection.add_label( "スレビューの選択範囲の色設定に gtkrc を用いる(_S)", true ),
+    m_chk_use_gtkrc_selection.add_label( "スレビューの文字色、背景色、選択範囲の色設定に GTKテーマ を用いる(_E)", true ),
     m_chk_use_gtkrc_selection.set_active( CONFIG::get_use_select_gtkrc() );
     m_vbox_color.pack_start( m_chk_use_gtkrc_selection, Gtk::PACK_SHRINK );
 
@@ -255,13 +347,70 @@ void FontColorPref::pack_widget()
     m_vbox_color.pack_start( m_chk_use_html_color, Gtk::PACK_SHRINK );
 
     m_bt_reset_all_colors.signal_clicked().connect( sigc::mem_fun( *this, &FontColorPref::slot_reset_all_colors ) );
-    m_vbox_color.pack_end( m_bt_reset_all_colors, Gtk::PACK_SHRINK );
+    m_bt_reset_all_colors_dark.signal_clicked().connect( sigc::mem_fun( *this, &FontColorPref::slot_reset_all_colors_dark ) );
+    m_label_reset_all_colors.set_xalign( Gtk::ALIGN_END );
+    m_bt_reset_all_colors.set_hexpand( false );
+    m_bt_reset_all_colors_dark.set_hexpand( false );
+    m_bt_reset_all_colors_dark.set_tooltip_text(
+        "HTMLタグで指定された文字色は、ダークテーマでは視認性が低下する可能性があるため、無効にします。" );
+
+    m_hbox_reset_all_colors.pack_end( m_bt_reset_all_colors_dark, Gtk::PACK_SHRINK );
+    m_hbox_reset_all_colors.pack_end( m_bt_reset_all_colors, Gtk::PACK_SHRINK );
+    m_hbox_reset_all_colors.pack_end( m_label_reset_all_colors, Gtk::PACK_SHRINK );
+    m_vbox_color.pack_end( m_hbox_reset_all_colors, Gtk::PACK_SHRINK );
 
     // ディスプレイ解像度が小さい環境で表示できるようにスクロール可能にする
     m_scroll_color.add( m_vbox_color );
     m_scroll_color.set_policy( Gtk::POLICY_NEVER, Gtk::POLICY_AUTOMATIC );
 
     m_notebook.append_page( m_scroll_color, "色の設定" );
+
+    // テーマ
+    m_label_gtk_theme.set_halign( Gtk::ALIGN_START );
+    m_label_gtk_theme.set_mnemonic_widget( m_combo_theme );
+    m_combo_theme.set_hexpand( true );
+    m_check_system_theme.set_halign( Gtk::ALIGN_START );
+    m_label_dark_theme.set_halign( Gtk::ALIGN_START );
+
+    m_grid_theme.property_margin() = 8;
+    m_grid_theme.set_column_spacing( 10 );
+    m_grid_theme.set_row_spacing( 8 );
+    m_grid_theme.attach( m_label_gtk_theme, 0, 0, 1, 1 );
+    m_grid_theme.attach( m_combo_theme, 1, 0, 1, 1 );
+    m_grid_theme.attach( m_check_system_theme, 1, 1, 1, 1 );
+    m_grid_theme.attach( m_label_dark_theme, 0, 2, 1, 1 );
+    m_grid_theme.attach( m_check_dark_theme, 1, 2, 1, 1 );
+
+    // アイコン
+    m_label_icon_theme.set_halign( Gtk::ALIGN_START );
+    m_label_icon_theme.set_mnemonic_widget( m_combo_icon );
+    m_label_use_symbolic_icon.set_halign( Gtk::ALIGN_START );
+    m_combo_icon.set_hexpand( true );
+    m_check_system_icon.set_halign( Gtk::ALIGN_START );
+    m_check_use_symbolic_icon.signal_toggled().connect(
+        sigc::mem_fun( *this, &FontColorPref::slot_toggled_symbolic ) );
+
+    m_grid_theme.attach( m_label_icon_theme, 0, 3, 1, 1 );
+    m_grid_theme.attach( m_combo_icon, 1, 3, 1, 1 );
+    m_grid_theme.attach( m_check_system_icon, 1, 4, 1, 1 );
+    m_grid_theme.attach( m_label_use_symbolic_icon, 0, 5, 1, 1 );
+    m_grid_theme.attach( m_check_use_symbolic_icon, 1, 5, 1, 1 );
+
+    m_scroll_note.add( m_label_note );
+    m_scroll_note.set_policy( Gtk::POLICY_NEVER, Gtk::POLICY_AUTOMATIC );
+    m_label_note_title.set_markup(
+        "<b>注意</b>\nテーマの設定は実験的なサポートのため、変更または廃止の可能性があります。\n" );
+    m_label_note_title.set_halign( Gtk::ALIGN_CENTER );
+    m_label_note_title.set_justify( Gtk::JUSTIFY_CENTER );
+    m_label_note.set_halign( Gtk::ALIGN_CENTER );
+    m_label_note.set_valign( Gtk::ALIGN_CENTER );
+    m_label_note.set_line_wrap( true );
+    m_label_note.set_vexpand( true );
+
+    m_grid_theme.attach( m_label_note_title, 0, 6, 2, 1 );
+    m_grid_theme.attach( m_scroll_note, 0, 7, 2, 1 );
+
+    m_notebook.append_page( m_grid_theme, "テーマの設定" );
 
     // 全体
     get_content_area()->pack_start( m_notebook );
@@ -294,6 +443,28 @@ void FontColorPref::slot_ok_clicked()
         CONFIG::set_use_color_html( use_color );
         completely = "completely";
     }
+
+    if( Glib::getenv( "GTK_THEME" ).empty() ) {
+        if( m_check_system_theme.get_active() ) {
+            // システム設定のGTKテーマを使うため、空文字列をセットする
+            CONFIG::set_gtk_theme_name( "" );
+        }
+        else {
+            CONFIG::set_gtk_theme_name( m_combo_theme.get_active_text() );
+        }
+    }
+    CONFIG::set_use_dark_theme( m_check_dark_theme.get_active() );
+    // GTKテーマを変更したときは、ビューで使用する文字色と背景色を更新する必要がある
+    CONFIG::update_view_colors();
+
+    if( m_check_system_icon.get_active() ) {
+        // システム設定のアイコンテーマを使うため、空文字列をセットする
+        CONFIG::set_gtk_icon_theme_name( "" );
+    }
+    else {
+        CONFIG::set_gtk_icon_theme_name( m_combo_icon.get_active_text() );
+    }
+    CONFIG::set_use_symbolic_icon( m_check_use_symbolic_icon.get_active() );
 
     CORE::core_set_command( "relayout_all_bbslist" );
     CORE::core_set_command( "relayout_all_board" );
@@ -440,11 +611,17 @@ void FontColorPref::slot_cell_data_name( Gtk::CellRenderer* cell, const Gtk::Tre
 
     const int colorid = row[ m_columns_color.m_col_colorid ];
     const std::string defaultcolor = row[ m_columns_color.m_col_default ];
+    Gtk::CellRendererText* rentext = dynamic_cast<Gtk::CellRendererText*>( cell );
     if( colorid != COLOR_NONE && CONFIG::get_color( colorid ) != defaultcolor ){
-        cell->property_cell_background() = CONFIG::get_color( COLOR_BACK_HIGHLIGHT_TREE );
-        cell->property_cell_background_set() = true;
+        rentext->property_foreground() = CONFIG::get_color( COLOR_CHAR_HIGHLIGHT_TREE );
+        rentext->property_foreground_set() = true;
+        rentext->property_cell_background() = CONFIG::get_color( COLOR_BACK_HIGHLIGHT_TREE );
+        rentext->property_cell_background_set() = true;
     }
-    else cell->property_cell_background_set() = false;
+    else {
+        rentext->property_foreground_set() = false;
+        rentext->property_cell_background_set() = false;
+    }
 }
 
 
@@ -529,6 +706,30 @@ void FontColorPref::slot_reset_color()
 }
 
 
+/**
+ * @brief 選択行の色をダークテーマ用のデフォルト値にリセット
+ */
+void FontColorPref::slot_reset_color_dark()
+{
+    std::vector<Gtk::TreePath> selection_paths = m_treeview_color.get_selection()->get_selected_rows();
+    if( selection_paths.empty() ) return;
+
+    for( const Gtk::TreePath& path : selection_paths ) {
+
+        Gtk::TreeRow row = *m_liststore_color->get_iter( path );
+        if( ! row ) continue;
+
+        const int colorid = row[ m_columns_color.m_col_colorid ];
+        if( colorid != COLOR_NONE ) {
+
+            const std::string default_dark = CONFIG::kDarkColors[ colorid ];
+            CONFIG::set_color( colorid, default_dark );
+            m_treeview_color.queue_draw();
+        }
+    }
+}
+
+
 //
 // 全ての色のリセット
 //
@@ -542,4 +743,33 @@ void FontColorPref::slot_reset_all_colors()
     CONFIG::reset_colors();
 
     m_treeview_color.queue_draw();
+}
+
+
+/** @brief 全ての色をダークテーマ用のデフォルト値にリセット
+ *
+ * @details HTMLタグで指定された文字色は、ダークテーマでは視認性が低下する可能性があるため、無効にします。
+ */
+void FontColorPref::slot_reset_all_colors_dark()
+{
+    m_chk_use_gtktheme_message.set_active( CONFIG::CONF_USE_MESSAGE_GTKTHEME );
+    m_chk_use_gtkrc_tree.set_active( CONFIG::CONF_USE_TREE_GTKRC );
+    m_chk_use_gtkrc_selection.set_active( CONFIG::CONF_USE_SELECT_GTKRC );
+    m_chk_use_html_color.set_active( false );
+
+    CONFIG::reset_colors_dark_theme();
+
+    m_treeview_color.queue_draw();
+}
+
+
+/**
+ * @brief 「シンボリックアイコンで表示する」設定を切り替えたときアイコンを再読み込みする
+ */
+void FontColorPref::slot_toggled_symbolic()
+{
+    const bool use_symbolic = m_check_use_symbolic_icon.get_active();
+    CONFIG::set_use_symbolic_icon( use_symbolic );
+    ICON::get_icon_manager()->reload_themed_icons( use_symbolic );
+    CORE::core_set_command( "reload_ui_icon" );
 }

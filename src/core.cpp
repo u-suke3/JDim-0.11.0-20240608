@@ -23,6 +23,7 @@
 #include "updatemanager.h"
 #include "login2ch.h"
 #include "loginbe.h"
+#include "loginacorn.h"
 #include "environment.h"
 #include "setupwizard.h"
 #include "cache.h"
@@ -94,6 +95,22 @@ Core::Core( JDWinMain& win_main )
     , m_vpaned_message( SKELETON::PANE_FIXSIZE_PAGE2 )
     , m_enable_menuslot( true )
 {
+    if( auto gtk_theme_name = CONFIG::get_gtk_theme_name(); ! gtk_theme_name.empty() ) {
+        // GTKの仕様により property_gtk_theme_name() に値を設定すると
+        // アプリケーションを終了するまでデスクトップ環境のシステム設定との同期が解除される
+        Gtk::Settings::get_default()->property_gtk_theme_name() = std::move( gtk_theme_name );
+    }
+    // property_gtk_application_prefer_dark_theme() に値を設定しても同期は維持される
+    Gtk::Settings::get_default()->property_gtk_application_prefer_dark_theme() = CONFIG::get_use_dark_theme();
+    // 色のセットアップが済んだのでビューで使う文字色と背景色を取得する
+    CONFIG::update_view_colors();
+
+    if( auto icon_theme = CONFIG::get_gtk_icon_theme_name(); ! icon_theme.empty() ) {
+        // GTKの仕様により property_gtk_icon_theme_name() に値を設定すると
+        // アプリケーションを終了するまでデスクトップ環境のシステム設定との同期が解除される
+        Gtk::Settings::get_default()->property_gtk_icon_theme_name() = std::move( icon_theme );
+    }
+
     // ディスパッチマネージャ作成
     CORE::get_dispmanager();
 
@@ -108,6 +125,9 @@ Core::Core( JDWinMain& win_main )
 
     // BEログインマネージャ作成
     CORE::get_loginbe();
+
+    // どんぐりシステム メールアドレス登録警備員のログインマネージャ作成
+    CORE::get_loginacorn();
 
     // マウス、キー設定読み込み
     CONTROL::load_conf();
@@ -224,6 +244,9 @@ Core::~Core()
     // BEログインマネージャ削除
     CORE::delete_loginbe();
 
+    // どんぐりシステム メールアドレス登録警備員のログインマネージャ削除
+    CORE::delete_loginacorn();
+
     // データベース削除
     DBTREE::delete_root();
     DBIMG::delete_root();
@@ -312,6 +335,8 @@ void Core::run( const bool init, const bool skip_setupdiag )
                          sigc::mem_fun( *this, &Core::slot_toggle_login2ch ) );
     m_action_group->add( Gtk::ToggleAction::create( "LoginBe", "BEにログイン(_B)", std::string(), false ),
                         sigc::mem_fun( *this, &Core::slot_toggle_loginbe ) );
+    m_action_group->add( Gtk::ToggleAction::create( "LoginAcorn", "どんぐりシステムにGmail警備員●でログイン(_G)", {}, false ),
+                         sigc::mem_fun( *this, &Core::slot_toggle_loginacorn ) );
     m_action_group->add( Gtk::Action::create( "ReloadList", "板一覧再読込(_R)"), sigc::mem_fun( *this, &Core::slot_reload_list ) );
 
     m_action_group->add( Gtk::Action::create( "SaveSession", "セッション保存(_S)"), sigc::mem_fun( *this, &Core::save_session ) );
@@ -791,6 +816,7 @@ void Core::run( const bool init, const bool skip_setupdiag )
             "<separator/>"
             "<menuitem action='Login2ch'/>"
             "<menuitem action='LoginBe'/>"
+            "<menuitem action='LoginAcorn'/>"
             "<separator/>"
             "<menuitem action='SaveSession'/>"
             "<separator/>"
@@ -1337,6 +1363,26 @@ void Core::first_setup()
     SetupWizard wizard;
     wizard.run();
 
+    // テーマのセットアップ処理
+    if( CONFIG::get_use_dark_theme() ) {
+        // HTMLタグによる文字色指定は、視認性低下を防ぐために無効化します。
+        CONFIG::set_use_color_html( false );
+
+        constexpr const char* kDefaultThemeName = "Adwaita";
+        CONFIG::set_gtk_theme_name( kDefaultThemeName );
+        CONFIG::set_use_dark_theme( true );
+        CONFIG::set_gtk_icon_theme_name( kDefaultThemeName );
+        CONFIG::set_use_symbolic_icon( true );
+
+        Gtk::Settings::get_default()->property_gtk_theme_name() = kDefaultThemeName;
+        Gtk::Settings::get_default()->property_gtk_application_prefer_dark_theme() = true;
+        Gtk::Settings::get_default()->property_gtk_icon_theme_name() = kDefaultThemeName;
+
+        constexpr bool kUseSymbolicIcon = true;
+        ICON::get_icon_manager()->reload_themed_icons( kUseSymbolicIcon );
+        CONFIG::reset_colors_dark_theme();
+    }
+
     m_init = false;
 }
 
@@ -1355,6 +1401,7 @@ void Core::set_maintitle()
 
     if( CORE::get_login2ch()->login_now() ) title +=" [ ● ]";
     if( CORE::get_loginbe()->login_now() ) title +=" [ BE ]";
+    if( CORE::get_loginacorn()->login_now() ) title +=" [ 警備員● ]";
     if( ! SESSION::is_online() ) title += " [ offline ]";
     m_win_main.set_title( title );
 }
@@ -1493,6 +1540,13 @@ void Core::slot_activate_menubar()
 
         if( CORE::get_loginbe()->login_now() ) tact->set_active( true );
         else tact->set_active( false );
+    }
+
+    // どんぐりシステム メールアドレス登録警備員のログイン
+    act = m_action_group->get_action( "LoginAcorn" );
+    tact = Glib::RefPtr<Gtk::ToggleAction>::cast_dynamic( act );
+    if( tact ) {
+        tact->set_active( CORE::get_loginacorn()->login_now() );
     }
 
     // 表示->スレ一覧に切替 (アクティブ状態を切り替える)
@@ -2267,7 +2321,7 @@ void Core::set_command( const COMMAND_ARGS& command )
             if( current_url.rfind( command.url, 0 ) == 0 ) current_url = command.url;
 
             // タブを開く位置を取得
-            const std::list<std::string> list_urls = ARTICLE::get_admin()->get_URLs();
+            const std::vector<std::string> list_urls = ARTICLE::get_admin()->get_URLs();
             for( const std::string& url : list_urls ) {
 
                 if( url == command.url ) break;
@@ -2938,6 +2992,18 @@ void Core::set_command( const COMMAND_ARGS& command )
         return;
     }
 
+    // ツールバーボタンのアイコンを更新
+    else if( command.command == "reload_ui_icon" ) {
+
+        ARTICLE::get_admin()->set_command( "reload_ui_icon" );
+        BOARD::get_admin()->set_command( "reload_ui_icon" );
+        BBSLIST::get_admin()->set_command( "reload_ui_icon" );
+        IMAGE::get_admin()->set_command( "reload_ui_icon" );
+        MESSAGE::get_admin()->set_command( "reload_ui_icon" );
+        m_toolbar->reload_ui_icon();
+        return;
+    }
+
     ///////////////////////////////
 
     // 移転があった
@@ -3080,7 +3146,7 @@ void Core::exec_command()
         // ロックされている画像があるか調べる
         bool img_locked = false;
         if( ! CONFIG::get_restore_image() ){
-            std::list< bool > list_locked = SESSION::get_image_locked();
+            const std::vector<char>& list_locked = SESSION::get_image_locked();
             img_locked = std::any_of( list_locked.cbegin(), list_locked.cend(), []( bool b ) { return b; } );
         }
 
@@ -3149,6 +3215,9 @@ void Core::exec_command()
 
     // BEへのログイン処理が完了した
     else if( command.command  == "loginbe_finished" ) set_maintitle();
+
+    // どんぐりシステム メールアドレス登録警備員へのログイン処理が完了した
+    else if( command.command  == "loginacorn_finished" ) set_maintitle();
 
     // あるadminのnotebookが空になった
     else if( command.command  == "empty_page" ) empty_page( command.url );
@@ -3354,6 +3423,9 @@ void Core::exec_command_after_boot()
 
     // BEログイン
     if( SESSION::loginbe() ) slot_toggle_loginbe();
+
+    // どんぐりシステム メールアドレス登録警備員のログイン
+    if( SESSION::loginacorn() ) slot_toggle_loginacorn();
 
     // タイトル表示
     set_maintitle();

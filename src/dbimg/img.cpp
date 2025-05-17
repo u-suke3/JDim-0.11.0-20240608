@@ -566,13 +566,17 @@ void Img::receive_finish()
     if( get_code() == HTTP_OK && ! current_length() ) m_type = T_NODATA;
 
     // リダイレクト
-    if( get_code() == HTTP_REDIRECT || get_code() == HTTP_MOVED_PERM ){
+    if( get_code() == HTTP_REDIRECT || get_code() == HTTP_MOVED_PERM || get_code() == HTTP_PERMANENT_REDIRECT ){
 #ifdef _DEBUG
         std::cout << "301/302 redirect url = " << location() << std::endl;
 #endif
         // アドレスに "404", ".htm" が含まれていたら not found と仮定
         std::string url_tmp = MISC::tolower_str( location() );
         if( url_tmp.find( "404" ) != std::string::npos && url_tmp.find( ".htm" ) != std::string::npos ) m_type = T_NOT_FOUND;
+
+        // 画像共有サービスimgurの削除された画像のURLは削除済みを示す画像へリダイレクトする
+        // 不要な通信やキャッシュを回避するため404 Not Foundにする。
+        else if( url_tmp == "https://i.imgur.com/removed.png" ) m_type = T_NOT_FOUND;
 
         else if( ! location().empty() && m_count_redirect < MAX_REDIRECT ){
 

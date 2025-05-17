@@ -230,13 +230,25 @@ namespace CONFIG
         // 色
         std::vector< std::string > str_color;
 
+        /// @brief GTKテーマの名前
+        std::string gtk_theme_name;
+
+        /// @brief ダークテーマを使用するか
+        bool use_dark_theme{};
+
+        /// @brief アイコンテーマの名前
+        std::string gtk_icon_theme_name;
+
+        /// @brief シンボリックアイコンを使用するか
+        bool use_symbolic_icon{};
+
         // 書き込みビューでGTKテーマの設定を使用するか (GTK3版のみ)
         bool use_message_gtktheme{};
 
         // ツリービューでgtkrcの設定を使用するか
         bool use_tree_gtkrc{};
 
-        // スレビューの選択色でgtkrcの設定を使用するか
+        /// @brief スレビューの文字色、背景色、選択色でGTKテーマの設定を使用するか
         bool use_select_gtkrc{};
 
         /// スレビューでHTMLタグ指定の色を使用するか
@@ -598,6 +610,8 @@ namespace CONFIG
 
         // 色のリセット
         void reset_colors();
+        void reset_colors_dark_theme();
+        void update_view_colors();
 
         // プロクシ設定
         void set_proxy_for2ch( const std::string& proxy );

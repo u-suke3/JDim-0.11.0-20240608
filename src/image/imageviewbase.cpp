@@ -624,9 +624,13 @@ void ImageViewBase::clicked()
 
 
 
-//
-// viewの操作
-//
+/** @brief viewの操作
+ *
+ * @param[in] control GdkEvent 構造体を解析して取得したコントロールID
+ * @return true ならイベントの伝播を止めて他のハンドラーを呼び出さない
+ * @note ImageViewMain でも呼び出されるので、動作の重複を避けるため
+ * 処理を行ったときは true を返してイベントが伝播しないようにします。
+ */
 bool ImageViewBase::operate_view( const int control )
 {
     if( CONTROL::operate_common( control, get_url(), IMAGE::get_admin() ) ) return true;
@@ -784,7 +788,7 @@ bool ImageViewBase::slot_button_release( GdkEventButton* event )
     // 実行された場合は何もしない 
     if( get_control().MG_wheel_end( event ) ) return true;
 
-    if( mg != CONTROL::None && enable_mg() ){
+    if( mg != CONTROL::NoOperation && enable_mg() ){
         operate_view( mg );
         return true;
     }
@@ -796,7 +800,7 @@ bool ImageViewBase::slot_button_release( GdkEventButton* event )
     // ポップアップメニュー
     if( get_control().button_alloted( event, CONTROL::PopupmenuButton ) ){
 
-        show_popupmenu( "", false );
+        show_popupmenu( "", SKELETON::PopupMenuPosition::mouse_pointer );
     }
 
     else if( is_under_mouse() ) operate_view( get_control().button_press( event ) );
@@ -828,7 +832,7 @@ bool ImageViewBase::slot_scroll_event( GdkEventScroll* event )
 {
     // ホイールマウスジェスチャ
     int control = get_control().MG_wheel_scroll( event );
-    if( enable_mg() && control != CONTROL::None ){
+    if( enable_mg() && control != CONTROL::NoOperation ){
         operate_view( control );
         return true;
     }

@@ -14,6 +14,9 @@
 #include "command.h"
 
 #include <gtk/gtkwindow.h>
+#ifdef GDK_WINDOWING_WAYLAND
+#include <gdk/gdkwayland.h>
+#endif // GDK_WINDOWING_WAYLAND
 
 enum
 {
@@ -278,6 +281,11 @@ void JDWindow::iconify_win()
 void JDWindow::move_win( const int x, const int y )
 {
     if( ! CONFIG::get_manage_winpos() ) return;
+#ifdef GDK_WINDOWING_WAYLAND
+    // Wayland環境で実行するとウインドウの移動が意図した通りに機能しないので、JDimは移動に関与しない
+    // ウインドウの移動や配置はWaylandコンポジタに任せる
+    if( GDK_IS_WAYLAND_DISPLAY( get_display()->gobj() ) ) return;
+#endif
 
 #ifdef _DEBUG
     std::cout << "JDWindow::move_win "
@@ -687,12 +695,29 @@ bool JDWindow::on_window_state_event( GdkEventWindowState* event )
 }
 
 
-// 移動、サイズ変更イベント
+/** @brief 移動、サイズ変更イベント
+ *
+ * @note 一部のウィンドウマネージャーでは、 `event->width/height` の値に
+ * Client-side decoration (CSD)などの装飾が含まれている可能性があります。
+ * `Gtk::Window::resize()`はウィンドウのコンテンツ領域（クライアント領域）
+ * を指定したサイズに変更するため、装飾が含まれたサイズを渡すと、
+ * 保存したサイズに正しく復元しません。代わりに、コンテンツ領域の
+ * サイズ保存に適している `Gtk::Window::get_size()` を使用します。
+ *
+ * @note Wayland では、`on_window_state_event()`と`on_configure_event()`が
+ * 呼び出される順序が X11 とは逆になっているため、`on_configure_event()`が
+ * 呼び出された時点では`is_maximized_win()`などの結果が更新されていません。
+ * その影響で、X11 と同じ条件でサイズ保存を行うと最大化やフルスクリーンの
+ * サイズが保存されてしまい、元のサイズに復元できなくなっていました。
+ * そのため、Wayland では代わりに`Gdk::Window::get_state()`を用いて
+ * 最新の状態を取得し、保存するかどうかを判定するようにしました。
+ */
 bool JDWindow::on_configure_event( GdkEventConfigure* event )
 {
     const int mrg = 16;
-    const int width_new = event->width;
-    const int height_new = event->height;
+    int width_new = 1;
+    int height_new = 1;
+    get_size( width_new, height_new );
     int min_height = 0;
     if( m_scrwin ) min_height = m_vbox.get_height() - m_scrwin->get_height() + mrg;
 
@@ -707,12 +732,24 @@ bool JDWindow::on_configure_event( GdkEventConfigure* event )
               << " min_height = " << min_height << std::endl;
 #endif
 
+        const auto is_window_normal = [this] {
+            // Wayland では、最新の状態を取得して保存するかどうか判定します。
+            if( ENVIRONMENT::get_display_type() == ENVIRONMENT::DisplayType::wayland ) {
+                const auto state = get_window()->get_state();
+                const auto mask = ( Gdk::WINDOW_STATE_MAXIMIZED | Gdk::WINDOW_STATE_ICONIFIED
+                                    | Gdk::WINDOW_STATE_FULLSCREEN );
+                return ! static_cast<bool>( state & mask );
+            }
+
+            return ! ( is_maximized_win() || is_iconified_win() || is_full_win() );
+        };
+
         // 最大 -> 通常に戻る時はリサイズをキャンセル
         if( m_mode == JDWIN_UNMAX ) m_mode = JDWIN_NORMAL;
         else if( m_mode == JDWIN_UNMAX_FOLD ) m_mode = JDWIN_FOLD;
 
         // 最大、最小化しているときは除く
-        else if( ! is_maximized_win() && ! is_iconified_win() && ! is_full_win() ){
+        else if( is_window_normal() ){
 
             set_win_pos();
 

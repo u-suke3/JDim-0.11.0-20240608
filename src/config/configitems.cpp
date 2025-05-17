@@ -277,13 +277,25 @@ bool ConfigItems::load( const bool restore )
     menu_search_web = cf.get_option_str( "menu_search_web", CONF_MENU_SEARCH_WEB );
     url_search_web = cf.get_option_str( "url_search_web", CONF_URL_SEARCH_WEB );
 
+    // GTKテーマの名前
+    gtk_theme_name = cf.get_option_str( "gtk_theme_name", CONF_GTK_THEME_NAME );
+
+    // ダークテーマを使用するか
+    use_dark_theme = cf.get_option_bool( "use_dark_theme", CONF_USE_DARK_THEME );
+
+    // アイコンテーマの名前
+    gtk_icon_theme_name = cf.get_option_str( "gtk_icon_theme_name", CONF_GTK_ICON_THEME_NAME );
+
+    // シンボリックアイコンを使用するか
+    use_symbolic_icon = cf.get_option_bool( "use_symbolic_icon", CONF_USE_SYMBOLIC_ICON );
+
     // 書き込みビューでGTKテーマの設定を使用するか (GTK3版のみ)
     use_message_gtktheme = cf.get_option_bool( "use_message_gtktheme", CONF_USE_MESSAGE_GTKTHEME );
 
     // ツリービューでgtkrcの設定を使用するか
     use_tree_gtkrc = cf.get_option_bool( "use_tree_gtkrc", CONF_USE_TREE_GTKRC );
 
-    // スレビューの選択色でgtkrcの設定を使用するか
+    // スレビューの文字色、背景色、選択色でGTKテーマの設定を使用するか
     use_select_gtkrc = cf.get_option_bool( "use_select_gtkrc", CONF_USE_SELECT_GTKRC );
 
     // スレビューでHTMLタグ指定の色を使用するか
@@ -515,9 +527,9 @@ bool ConfigItems::load( const bool restore )
     // スレ あぼーん( レス数 )
     // abone_number_thread は変数や関数と名前が異なるが互換性のため維持する
     abone_low_number_thread = cf.get_option_int( "abone_low_number_thread", CONF_ABONE_LOW_NUMBER_THREAD, 0,
-                                                 CONFIG::get_max_resnumber() );
+                                                 std::numeric_limits<int>::max() - 1 );
     abone_high_number_thread = cf.get_option_int( "abone_number_thread", CONF_ABONE_HIGH_NUMBER_THREAD, 0,
-                                                  CONFIG::get_max_resnumber() );
+                                                  std::numeric_limits<int>::max() - 1 );
 
     // スレ あぼーん( スレ立てからの経過時間 )
     abone_hour_thread = cf.get_option_int( "abone_hour_thread", CONF_ABONE_HOUR_THREAD, 0, 9999 );
@@ -798,6 +810,7 @@ void ConfigItems::save_impl( const std::string& path )
     cf.update( "cl_char_age", str_color[ COLOR_CHAR_AGE ] );
     cf.update( "cl_char_selection", str_color[ COLOR_CHAR_SELECTION ] );
     cf.update( "cl_char_highlight", str_color[ COLOR_CHAR_HIGHLIGHT ] );
+    cf.update( "cl_char_highlight_tree", str_color[ COLOR_CHAR_HIGHLIGHT_TREE ] );
     cf.update( "cl_char_link", str_color[ COLOR_CHAR_LINK ] );
     cf.update( "cl_char_link_id_low", str_color[ COLOR_CHAR_LINK_ID_LOW ] );
     cf.update( "cl_char_link_id_high", str_color[ COLOR_CHAR_LINK_ID_HIGH ] );
@@ -828,6 +841,10 @@ void ConfigItems::save_impl( const std::string& path )
     cf.update( "cl_back_board", str_color[ COLOR_BACK_BOARD ] );
     cf.update( "cl_back_board_even", str_color[ COLOR_BACK_BOARD_EVEN ] );
 
+    cf.update( "gtk_theme_name", gtk_theme_name );
+    cf.update( "use_dark_theme", use_dark_theme );
+    cf.update( "gtk_icon_theme_name", gtk_icon_theme_name );
+    cf.update( "use_symbolic_icon", use_symbolic_icon );
     cf.update( "use_message_gtktheme", use_message_gtktheme );
     cf.update( "use_tree_gtkrc", use_tree_gtkrc );
     cf.update( "use_select_gtkrc", use_select_gtkrc );
@@ -1067,6 +1084,9 @@ void ConfigItems::set_colors( JDLIB::ConfLoader& cf )
     // ハイライトの文字色
     str_color[ COLOR_CHAR_HIGHLIGHT ] = cf.get_option_str( "cl_char_highlight", CONF_COLOR_CHAR_HIGHLIGHT, 13 );
 
+    // ハイライトの文字色(ツリー用)
+    str_color[ COLOR_CHAR_HIGHLIGHT_TREE ] = cf.get_option_str( "cl_char_highlight_tree", CONF_COLOR_CHAR_HIGHLIGHT_TREE, 13 );
+
     // 通常のリンクの文字色
     str_color[ COLOR_CHAR_LINK ] = cf.get_option_str( "cl_char_link", CONF_COLOR_CHAR_LINK, 13 );
 
@@ -1170,6 +1190,39 @@ void ConfigItems::reset_colors()
     // dummyのConfLoaderをset_colors()に渡してデフォルト値をセットする
     JDLIB::ConfLoader cf( "", "dummy = dummy" );
     set_colors( cf );
+}
+
+
+/**
+ * @brief 色をダークテーマ用のデフォルト値にリセット
+ */
+void ConfigItems::reset_colors_dark_theme()
+{
+    for( unsigned int i = COLOR_CHAR; i != COLOR_NUM; ++i ) {
+        if( const char* dark = CONFIG::kDarkColors[i]; dark && dark[0] != '\0' ) {
+            str_color[i] = dark;
+        }
+    }
+
+    update_view_colors();
+}
+
+
+/** @brief ビューで使用する文字色と背景色を更新する
+ *
+ * @details ビューで使用する文字色と背景色はフォントと色の詳細設定ダイアログにある
+ * 「色の設定を全てデフォルトに戻す」ボタンで更新されますが、JDimを起動した直後や
+ * フォントと色の詳細設定ダイアログで「OK」ボタンを押した際も更新する必要があります。
+ * そのため、 `ConfigItems::reset_colors_dark_theme()` から処理を抽出して関数にまとめ、
+ * 更新が必要な箇所で呼び出しできるようにします。
+ */
+void ConfigItems::update_view_colors()
+{
+    // Gtk::Entryのデフォルトの文字色
+    str_color[ COLOR_CHAR_ENTRY_DEFAULT ] = MISC::get_entry_color_text();
+
+    // Gtk::Entryのデフォルトの背景色
+    str_color[ COLOR_BACK_ENTRY_DEFAULT ] = MISC::get_entry_color_base();
 }
 
 

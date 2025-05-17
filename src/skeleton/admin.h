@@ -16,6 +16,7 @@
 #include <list>
 #include <memory>
 #include <string>
+#include <vector>
 
 
 namespace SKELETON
@@ -69,6 +70,9 @@ namespace SKELETON
         bool m_use_switchhistory{};
         std::list< std::string > m_list_switchhistory;
 
+        /// @brief 配置用ウィジェットのポインターを保持する。Adminではウィジェットの寿命を管理しない。
+        std::vector<Gtk::Widget*> m_vec_anchor_widget;
+
     public:
 
         explicit Admin( const std::string& url );
@@ -97,7 +101,7 @@ namespace SKELETON
         virtual int get_tab_nums();
 
         // 含まれているページのURLのリスト取得
-        virtual std::list< std::string > get_URLs();
+        virtual std::vector<std::string> get_URLs();
 
         // Core からのクロック入力。
         // Coreでタイマーをひとつ動かして全体の同期を取るようにしているので
@@ -151,6 +155,10 @@ namespace SKELETON
         void set_current_page_focus( const Glib::VariantBase& page );
 
         virtual View* get_current_view();
+
+        // 配置用のウィジェットを取得する/設定する
+        Gtk::Widget* get_anchor_widget( const std::size_t id );
+        void set_anchor_widget( const std::size_t id, Gtk::Widget* anchor_widget );
 
     protected:
 
@@ -261,6 +269,7 @@ namespace SKELETON
         void focus_toolbar_search();
         void redraw_toolbar();
         void update_toolbar_button();
+        virtual void reload_ui_icon();
         virtual void open_searchbar(){}
         virtual void close_searchbar(){}
 
@@ -293,11 +302,6 @@ namespace SKELETON
         // タブ切り替えメニュー表示
         void slot_show_tabswitchmenu();
 
-#if ! GTK_CHECK_VERSION(3,24,6)
-        /// タブ切り替えメニューの位置決め
-        void slot_popup_pos( int& x, int& y, bool& push_in );
-#endif
-
         // 右クリックメニュー
         virtual void slot_close_tab();
         virtual void slot_lock();
@@ -317,7 +321,7 @@ namespace SKELETON
         virtual void append_favorite_impl( const std::string& url ) {}
 
         // ページがロックされているかリストで取得
-        virtual std::list< bool > get_locked();
+        virtual std::vector<char> get_locked();
 
         // タブのロック/アンロック
         virtual bool is_lockable( const int page );

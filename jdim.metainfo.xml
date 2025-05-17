@@ -1,12 +1,15 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!-- SPDX-License-Identifier: FSFAP -->
-<!-- Copyright (c) 2019-2024 JDimproved project -->
+<!-- Copyright (c) 2019-2025 JDimproved project -->
 <component type="desktop-application">
   <id>com.github.jdimproved.jdim</id>
   <metadata_license>FSFAP</metadata_license>
   <project_license>GPL-2.0</project_license>
   <name>JDim</name>
   <summary>2ch browser for Linux</summary>
+  <developer id="com.github.jdimproved.jdim">
+    <name>JDimproved project</name>
+  </developer>
 
   <description>
     <p>
@@ -31,8 +34,8 @@
       <image>https://user-images.githubusercontent.com/15698961/72191765-39568200-33fb-11ea-9b2d-f8a997cf9ae8.png</image>
     </screenshot>
     <screenshot>
-      <caption>Extracting a keyword (highlight "ワロタ")</caption>
-      <image>https://github-production-user-asset-6210df.s3.amazonaws.com/15698961/295247856-f598560d-73d1-4592-8515-f701bb0d4db8.png</image>
+      <caption>Extracting a keyword (highlight "カーボン")</caption>
+      <image>https://dashboard.snapcraft.io/site_media/appmedia/2025/01/jdim-Screenshot_20250109_234530-and-extract-1736434680.png</image>
     </screenshot>
     <screenshot>
       <caption>Editing message to post</caption>
@@ -40,7 +43,7 @@
     </screenshot>
     <screenshot>
       <caption>Extracting posts which have much referenced</caption>
-      <image>https://github-production-user-asset-6210df.s3.amazonaws.com/15698961/295247869-1739c5b9-742d-4c0e-8aa9-d26f94c0db70.png</image>
+      <image>https://dashboard.snapcraft.io/site_media/appmedia/2025/01/jdim-Screenshot_20250109_234753-high-ref-1736434680.png</image>
     </screenshot>
   </screenshots>
 
@@ -54,6 +57,18 @@
   </provides>
 
   <releases>
+    <release version="0.13.0" date="2025-01-11">
+      <description>
+        <p>Add GTK theme and Icon theme selection</p>
+      </description>
+      <url>https://github.com/JDimproved/JDim/releases/tag/JDim-v0.13.0</url>
+    </release>
+    <release version="0.12.0" date="2024-07-06">
+      <description>
+        <p>Support 5ch.net Donguri System login with guard account linked to Gmail</p>
+      </description>
+      <url>https://github.com/JDimproved/JDim/releases/tag/JDim-v0.12.0</url>
+    </release>
     <release version="0.11.0" date="2024-01-13">
       <description>
         <p>End-of-life for build system Autotools support</p>

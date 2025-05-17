@@ -373,7 +373,7 @@ std::string MouseKeyDiag::show_inputdiag( bool is_append )
         bool conflict = false;
         const std::vector< int > vec_ids = check_conflict( m_controlmode, diag->get_str_motion() );
         auto it = std::find_if( vec_ids.cbegin(), vec_ids.cend(),
-                                [this]( int id ) { return id != CONTROL::None && id != m_id; } );
+                                [this]( int id ) { return id != CONTROL::NoOperation && id != m_id; } );
         if( it != vec_ids.cend() ) {
             const std::string label = CONTROL::get_label( *it );
             SKELETON::MsgDiag mdiag( nullptr, diag->get_str_motion() + "\n\nは「" + label + "」で使用されています" );
@@ -475,7 +475,7 @@ void MouseKeyDiag::slot_reset()
         bool conflict = false;
         const std::vector< int > vec_ids = check_conflict( m_controlmode, motion );
         auto it = std::find_if( vec_ids.cbegin(), vec_ids.cend(),
-                                [this]( int id ) { return id != CONTROL::None && id != m_id; } );
+                                [this]( int id ) { return id != CONTROL::NoOperation && id != m_id; } );
         if( it != vec_ids.cend() ) {
             const std::string label = CONTROL::get_label( *it );
             SKELETON::MsgDiag mdiag( nullptr, motion + "\n\nは「" + label + "」で使用されています" );
@@ -499,13 +499,43 @@ void MouseKeyDiag::slot_reset()
 // マウスジェスチャ、キーボード設定ダイアログの基底クラス
 //
 MouseKeyPref::MouseKeyPref( Gtk::Window* parent, const std::string& url, const std::string& target  )
-    : SKELETON::PrefDiag( parent, url ),
-      m_button_reset( "全てデフォルト設定に戻す" ),
-      m_label( "編集したい" + target + "設定をダブルクリックして下さい。" )
+    : SKELETON::PrefDiag( parent, url )
+    , m_hbox_search{ Gtk::ORIENTATION_HORIZONTAL, 0 }
+    , m_button_reset{ "全てデフォルト設定に戻す" }
+    , m_label{ "編集したい" + target + "設定をダブルクリックして下さい。" }
 {
+    signal_key_press_event().connect( sigc::mem_fun( *this, &MouseKeyPref::slot_key_press_event ) );
+
+    m_hbox_search.pack_start( m_label, Gtk::PACK_SHRINK );
+    m_hbox_search.pack_end( m_toggle_search, Gtk::PACK_SHRINK );
+
+    m_label.set_hexpand( true );
+    m_toggle_search.set_image_from_icon_name( "edit-find-symbolic" );
+    // m_toggle_search 以外にも m_search_bar を閉じる操作があるため双方向にバインドする
+    m_binding_search = Glib::Binding::bind_property( m_toggle_search.property_active(),
+                                                     m_search_bar.property_search_mode_enabled(),
+                                                     Glib::BINDING_BIDIRECTIONAL );
+
+    m_search_bar.add( m_search_entry );
+    m_search_bar.connect_entry( m_search_entry );
+    m_search_bar.set_hexpand( true );
+    m_search_bar.set_show_close_button( true );
+
+    m_search_entry.set_hexpand( true );
+    m_search_entry.set_width_chars( 50 );
+    m_search_entry.signal_changed().connect( sigc::mem_fun( *this, &MouseKeyPref::slot_entry_changed ) );
+
     m_liststore = Gtk::ListStore::create( m_columns );
-    m_treeview.set_model( m_liststore );
+    m_model_filter = Gtk::TreeModelFilter::create( m_liststore );
+    m_model_filter->set_visible_func( sigc::mem_fun( *this, &MouseKeyPref::slot_visible_func ) );
+
+    m_treeview.set_model( m_model_filter );
+    m_treeview.set_search_entry( m_search_entry );
     m_treeview.set_size_request( 640, 400 );
+    m_scrollwin.set_margin_bottom( 8 );
+    m_scrollwin.set_policy( Gtk::POLICY_AUTOMATIC, Gtk::POLICY_ALWAYS );
+    m_scrollwin.set_propagate_natural_height( true );
+    m_scrollwin.set_propagate_natural_width( true );
     m_treeview.signal_row_activated().connect( sigc::mem_fun( *this, &MouseKeyPref::slot_row_activated ) );
 
     Gtk::TreeViewColumn* column = Gtk::manage( new Gtk::TreeViewColumn( "コマンド", m_columns.m_col_label ) );
@@ -528,8 +558,8 @@ MouseKeyPref::MouseKeyPref( Gtk::Window* parent, const std::string& url, const s
     m_button_reset.signal_clicked().connect( sigc::mem_fun( *this, &MouseKeyPref::slot_reset ) );
     m_hbox.pack_start( m_button_reset, Gtk::PACK_SHRINK );
 
-    get_content_area()->set_spacing( 8 );
-    get_content_area()->pack_start( m_label, Gtk::PACK_SHRINK );
+    get_content_area()->pack_start( m_hbox_search, Gtk::PACK_SHRINK );
+    get_content_area()->pack_start( m_search_bar, Gtk::PACK_SHRINK );
     get_content_area()->pack_start( m_scrollwin );
     get_content_area()->pack_start( m_hbox, Gtk::PACK_SHRINK );
 
@@ -569,7 +599,7 @@ void MouseKeyPref::append_comment_row( const std::string& comment )
     if( row ){
         row[ m_columns.m_col_label ] = comment;
         row[ m_columns.m_col_motions ] = std::string();
-        row[ m_columns.m_col_id ] = CONTROL::None;
+        row[ m_columns.m_col_id ] = CONTROL::NoOperation;
         row[ m_columns.m_col_drawbg ] = false;
         static_cast<void>( row ); // cppcheck: unreadVariable
     }
@@ -585,7 +615,7 @@ void MouseKeyPref::slot_reset()
     for( Gtk::TreeRow row : children ) {
         if( row ){
             const int id = row[ get_colums().m_col_id ];
-            if( id != CONTROL::None ){
+            if( id != CONTROL::NoOperation ){
 
                 const std::string str_motions = get_default_motions( id );
 
@@ -609,11 +639,11 @@ void MouseKeyPref::slot_row_activated( const Gtk::TreeModel::Path& path, Gtk::Tr
     std::cout << "MouseKeyPref::slot_row_activated path = " << path.to_string() << std::endl;
 #endif
 
-    Gtk::TreeModel::Row row = *( get_liststore()->get_iter( path ) );
+    Gtk::TreeModel::Row row = *( m_model_filter->get_iter( path ) );
     if( ! row ) return;
 
     const int id = row[ get_colums().m_col_id ];
-    if( id == CONTROL::None ) return;
+    if( id == CONTROL::NoOperation ) return;
 
     std::unique_ptr<MouseKeyDiag> diag = create_setting_diag( id, row[ get_colums().m_col_motions ] );
     if( diag->run() == Gtk::RESPONSE_OK ){
@@ -635,10 +665,79 @@ void MouseKeyPref::slot_row_activated( const Gtk::TreeModel::Path& path, Gtk::Tr
 void MouseKeyPref::slot_cell_data( Gtk::CellRenderer* cell, const Gtk::TreeModel::iterator& it )
 {
     Gtk::TreeModel::Row row = *it;
+    Gtk::CellRendererText* rentext = dynamic_cast<Gtk::CellRendererText*>( cell );
 
     if( row[ m_columns.m_col_drawbg ] ){
-        cell->property_cell_background() = CONFIG::get_color( COLOR_BACK_HIGHLIGHT_TREE );
-        cell->property_cell_background_set() = true;
+        rentext->property_foreground() = CONFIG::get_color( COLOR_CHAR_HIGHLIGHT_TREE );
+        rentext->property_foreground_set() = true;
+        rentext->property_cell_background() = CONFIG::get_color( COLOR_BACK_HIGHLIGHT_TREE );
+        rentext->property_cell_background_set() = true;
     }
-    else cell->property_cell_background_set() = false;
+    else {
+        rentext->property_foreground_set() = false;
+        rentext->property_cell_background_set() = false;
+    }
+}
+
+
+/** @brief ダイアログ内で Ctrl+F が押されたときは検索ボックスを表示する
+ *
+ * @param[in] event キーイベントの状態
+ * @return 検索ボックスが非表示のときは m_search_bar の処理から返す、それ以外は false (GDK_EVENT_PROPAGATE)
+ */
+bool MouseKeyPref::slot_key_press_event( GdkEventKey* event )
+{
+    if( ( event->state & GDK_CONTROL_MASK ) && event->keyval == 'f' ) {
+        if( m_search_bar.get_search_mode() ) {
+            m_search_entry.grab_focus();
+        }
+        else {
+            m_search_bar.set_search_mode( true );
+            return m_search_bar.handle_event( event );
+        }
+    }
+    return false;
+}
+
+
+/**
+ * @brief 検索ボックスに入力されたテキストで設定項目のフィルタリングを実行する
+ */
+void MouseKeyPref::slot_entry_changed()
+{
+    m_model_filter->refilter();
+}
+
+
+/** @brief 検索ボックスに入力されたテキストが設定の名称に含まれるかチェックする
+ *
+ * @details 入力は1つのキーワードとして検索する。
+ * 空白でテキストを区切ってもAND検索やOR検索は行わない。
+ * @param[in] iter 設定項目の行
+ * @return チェックした行を表示するなら true
+ * - 設定の名称に入力テキストが含まれるなら表示する
+ * - 検索ボックスが非表示のときや入力テキストが空のときはすべての行を表示する
+ */
+bool MouseKeyPref::slot_visible_func( const Gtk::TreeModel::const_iterator& iter )
+{
+    if( ! m_search_bar.get_search_mode() ) return true;
+
+    Glib::ustring query = m_search_entry.get_text();
+    if( query.empty() ) return true;
+
+    const Gtk::TreeModel::Row& row = *iter;
+    // 検索中は設定カテゴリの名前や空行を取り除く
+    if( row[ m_columns.m_col_id ] == CONTROL::NoOperation ) return false;
+
+    // 検索クエリの前後にある空白文字は無視する
+    constexpr auto is_not_space = []( gunichar uc ) { return uc != U' ' && uc != U'\u3000'; };
+    if( auto it = std::find_if( query.begin(), query.end(), is_not_space ); it != query.begin() ) {
+        query.erase( query.begin(), it );
+    }
+    if( auto rit = std::find_if( query.rbegin(), query.rend(), is_not_space ); rit != query.rbegin() ) {
+        query.erase( rit.base(), query.end() );
+    }
+
+    const std::string& name = row[ m_columns.m_col_label ];
+    return name.find( query.raw() ) != std::string::npos;
 }

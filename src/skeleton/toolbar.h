@@ -69,7 +69,7 @@ namespace SKELETON
         SKELETON::ToolBackForwardButton* m_button_back{};
         SKELETON::ToolBackForwardButton* m_button_forward{};
 
-        static constexpr const char* s_css_label = u8"jd-toolbar-label";
+        static constexpr const char* s_css_label = "jd-toolbar-label";
         Glib::RefPtr< Gtk::CssProvider > m_label_provider = Gtk::CssProvider::create();
 
       public:
@@ -103,6 +103,9 @@ namespace SKELETON
 
         // ボタン表示更新
         void update_button();
+
+        // ボタンのアイコンを再読み込み
+        virtual void reload_ui_icon();
 
       protected:
 
@@ -165,6 +168,8 @@ namespace SKELETON
         void pack_separator();
         void pack_transparent_separator();
         void set_tooltip( Gtk::ToolItem& toolitem, const std::string& tip, const bool use_markup = false );
+
+        static void set_button_icon( Gtk::ToolButton* button, const int iconid );
 
       private:
 

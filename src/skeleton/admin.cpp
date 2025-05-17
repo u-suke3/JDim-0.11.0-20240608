@@ -343,10 +343,10 @@ int Admin::get_tab_nums()
 //
 // 含まれているページのURLのリスト取得
 //
-std::list<std::string> Admin::get_URLs()
+std::vector<std::string> Admin::get_URLs()
 {
-    std::list<std::string> urls;
-    
+    std::vector<std::string> urls;
+
     const int pages = m_notebook->get_n_pages();
     if( pages ){
 
@@ -740,6 +740,11 @@ void Admin::exec_command()
     // ツールバーボタン表示更新
     else if( command.command == "update_toolbar_button" ){
         update_toolbar_button();
+    }
+
+    // ツールバーボタンのアイコンを再読み込み
+    else if( command.command == "reload_ui_icon" ){
+        reload_ui_icon();
     }
 
     // 検索バー表示
@@ -1254,6 +1259,15 @@ void Admin::update_toolbar_button()
 }
 
 
+/**
+ * @brief ツールバーボタンのアイコンを再読み込み
+ */
+void Admin::reload_ui_icon()
+{
+    m_notebook->reload_ui_icon();
+}
+
+
 //
 // ビュー切り替え
 //
@@ -1371,6 +1385,13 @@ void Admin::tab_num( const std::string& str_num )
     if( str_num.empty() ) return;
 
     const int num = strtol( str_num.c_str(), nullptr, 10 );
+
+    // 最後のタブに移動
+    if( num == -1 ) {
+        // GtkNotebook の API はマイナスの値で最後のタブを指定する
+        set_current_page( -1 );
+        return;
+    }
 
     // Firefoxの動作に合わせた
     // 0 → 無視
@@ -2043,6 +2064,31 @@ View* Admin::get_current_view()
 }
 
 
+/** @brief 配置用のウィジェットを取得する
+ *
+ * @param[in] id 紐づけのID
+ * @return id に紐づけられたウィジェット、無ければ nullptr を返す
+ */
+Gtk::Widget* Admin::get_anchor_widget( const std::size_t id )
+{
+    if( m_vec_anchor_widget.size() <= id ) return nullptr;
+    return m_vec_anchor_widget[id];
+}
+
+
+/** @brief 配置用のウィジェットを設定する
+ *
+ * @note Admin では anchor_widget の寿命を管理しない。
+ * @param[in] id            紐づけのID
+ * @param[in] anchor_widget IDに紐づける配置用ウィジェット
+ */
+void Admin::set_anchor_widget( const std::size_t id, Gtk::Widget* anchor_widget )
+{
+    if( m_vec_anchor_widget.size() <= id ) {
+        m_vec_anchor_widget.resize( id + 1 );
+    }
+    m_vec_anchor_widget[id] = anchor_widget;
+}
 
 
 //
@@ -2275,12 +2321,7 @@ void Admin::slot_tab_menu( int page, int x, int y )
             m_prev_n_pages = n_pages;
         }
 
-#if GTK_CHECK_VERSION(3,24,6)
         m_tablabel_menu.popup_at_pointer( nullptr ); // current event
-#else
-        // GTK 3.24.5 以下のバージョンではメニューのスクロールが出来なくなることがあるため廃止予定APIを使う
-        m_tablabel_menu.popup( 0, gtk_get_current_event_time() );
-#endif
     }
 }
 
@@ -2305,40 +2346,10 @@ void Admin::slot_show_tabswitchmenu()
         m_tabswitchmenu.signal_deactivate().connect( sigc::mem_fun( *this, &Admin::slot_popupmenu_deactivate ) );
     }
 
-#if GTK_CHECK_VERSION(3,24,6)
     // Specify the current event by nullptr.
     m_tabswitchmenu.popup_at_widget( &( m_notebook->get_tabswitch_button() ),
                                      Gdk::GRAVITY_SOUTH_EAST, Gdk::GRAVITY_NORTH_EAST, nullptr );
-#else
-    // GTK 3.24.5 以下のバージョンではメニューのスクロールが出来なくなることがあるため廃止予定APIを使う
-    m_tabswitchmenu.popup( Gtk::Menu::SlotPositionCalc( sigc::mem_fun( *this, &Admin::slot_popup_pos ) ),
-                           0, gtk_get_current_event_time() );
-#endif
 }
-
-
-#if ! GTK_CHECK_VERSION(3,24,6)
-/**
- * @brief タブ切り替えメニューの位置決め
- */
-void Admin::slot_popup_pos( int& x, int& y, bool& push_in )
-{
-    if( ! m_model_tabswitch ) return;
-
-    const int mrg = 16;
-
-    m_notebook->get_tabswitch_button().get_pointer( x, y );
-
-    int ox, oy;
-    m_notebook->get_tabswitch_button().get_window()->get_origin( ox, oy );
-    const Gdk::Rectangle rect = m_notebook->get_tabswitch_button().get_allocation();
-
-    x += ox + rect.get_x() - mrg;
-    y = oy + rect.get_y() + rect.get_height();
-
-    push_in = false;
-}
-#endif
 
 
 //
@@ -2660,9 +2671,9 @@ void Admin::slot_append_favorite()
 
 
 // ページがロックされているかリストで取得
-std::list< bool > Admin::get_locked()
+std::vector<char> Admin::get_locked()
 {
-    std::list< bool > locked;
+    std::vector<char> locked;
     
     const int pages = m_notebook->get_n_pages();
     if( pages ){

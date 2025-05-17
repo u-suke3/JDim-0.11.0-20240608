@@ -12,6 +12,16 @@
 
 #include <gtkmm.h>
 
+#ifdef GDK_WINDOWING_WAYLAND
+#include <gdk/gdkwayland.h>
+#endif
+#ifdef GDK_WINDOWING_X11
+#include <gdk/gdkx.h>
+#endif
+#ifdef GDK_WINDOWING_BROADWAY
+#include <gdk/gdkbroadway.h>
+#endif
+
 #if __has_include(<sys/utsname.h>)
 #define HAVE_SYS_UTSNAME_H
 #include <sys/utsname.h> // uname()
@@ -37,6 +47,7 @@ std::string ENVIRONMENT::get_jd2chlog(){ return JD2CHLOG; }
 std::string ENVIRONMENT::get_jdhelp(){ return JDHELP; }
 std::string ENVIRONMENT::get_jdhelpcmd(){ return JDHELPCMD; }
 std::string ENVIRONMENT::get_jdhelpreplstr() { return JDHELPREPLSTR; }
+std::string ENVIRONMENT::get_jdhelpimghash() { return JDHELPIMGHASH; }
 std::string ENVIRONMENT::get_jdlicense(){ return JDLICENSE; }
 
 
@@ -393,6 +404,45 @@ std::string ENVIRONMENT::get_wm_str()
 }
 
 
+/** @brief ディスプレイサーバーの種類を文字列で返す
+ *
+ * @details ディスプレイサーバーが不明のときは空文字列を返す。
+ * @return 区切りの空白と () で囲われたディスプレイサーバーの種類の文字列
+ */
+const char* ENVIRONMENT::get_display_str()
+{
+    constexpr const char* tbl_display[] = { " (Wayland)", " (X11)", " (Broadway)", "" };
+
+    const auto display_type = ENVIRONMENT::get_display_type();
+    return tbl_display[ static_cast<unsigned int>( display_type ) ];
+}
+
+
+/** @brief ディスプレイサーバーの種類を判定してenum型で返す
+ *
+ * @details ディスプレイサーバーが不明のときは DisplayType::unknown を返す。
+ * @return ディスプレイサーバーの種類を表すenum型
+ */
+ENVIRONMENT::DisplayType ENVIRONMENT::get_display_type()
+{
+    GdkDisplay* display = gdk_display_get_default();
+
+#ifdef GDK_WINDOWING_WAYLAND
+    if( GDK_IS_WAYLAND_DISPLAY( display ) ) return DisplayType::wayland;
+#endif
+
+#ifdef GDK_WINDOWING_X11
+    if( GDK_IS_X11_DISPLAY( display ) ) return DisplayType::x11;
+#endif
+
+#ifdef GDK_WINDOWING_BROADWAY
+    if( GDK_IS_BROADWAY_DISPLAY( display ) ) return DisplayType::broadway;
+#endif
+
+    return DisplayType::unknown;
+}
+
+
 //
 // gtkmmのバージョンを取得
 //
@@ -458,6 +508,9 @@ std::string ENVIRONMENT::get_jdinfo()
     // デスクトップ環境を取得( 環境変数から判別可能の場合 )
     std::string desktop = get_wm_str();
 
+    // ディスプレイサーバーの種類を取得
+    const char* display = get_display_str();
+
     // その他
     std::string other;
 
@@ -470,7 +523,7 @@ std::string ENVIRONMENT::get_jdinfo()
     "[バージョン] " << progname << " " << version << "\n" <<
     "[ディストリ ] " << distribution << "\n" <<
     "[パッケージ] " << JDIM_PACKAGER << "\n" <<
-    "[ DE／WM ] " << desktop << "\n" <<
+    "[ DE／WM ] " << desktop << display << "\n" <<
     "[　gtkmm 　] " << get_gtkmm_version() << "\n" <<
     "[　glibmm 　] " << get_glibmm_version() << "\n" <<
     "[　TLS lib　] " << get_tlslib_version() << "\n" <<

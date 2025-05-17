@@ -216,7 +216,7 @@ void MessageViewBase::init_color()
     if( m_text_message ){
 
         if( CONFIG::get_use_message_gtktheme() ) {
-            m_text_message->update_style( u8"" );
+            m_text_message->update_style( "" );
         }
         else {
             const char* const classname = m_text_message->get_css_classname();
@@ -225,7 +225,7 @@ void MessageViewBase::init_color()
             const auto sel_fg = Gdk::RGBA( CONFIG::get_color( COLOR_CHAR_MESSAGE_SELECTION ) ).to_string();
             const auto sel_bg = Gdk::RGBA( CONFIG::get_color( COLOR_BACK_MESSAGE_SELECTION ) ).to_string();
             m_text_message->update_style( Glib::ustring::compose(
-                u8R"(
+                R"(
                     .%1, .%1 text { color: %2; background-color: %3; caret-color: %2; }
                     .%1:selected, .%1:selected:focus,
                     .%1 text:selected, .%1 text:selected:focus,
@@ -525,7 +525,7 @@ void MessageViewBase::focus_view()
 //
 bool MessageViewBase::operate_view( const int control )
 {
-    if( control == CONTROL::None ) return false;
+    if( control == CONTROL::NoOperation ) return false;
 
     switch( control ){
 
@@ -829,7 +829,8 @@ void MessageViewBase::post_fin()
 
     // 成功
     if( code == HTTP_OK
-        || ( ( code == HTTP_MOVED_PERM || code == HTTP_REDIRECT ) && ! location.empty() ) // (まちBBSなどで)リダイレクトした場合
+        || ( ( code == HTTP_MOVED_PERM || code == HTTP_REDIRECT || code == HTTP_PERMANENT_REDIRECT )
+             && ! location.empty() ) // (まちBBSなどで)リダイレクトした場合
         ){
         save_postlog();
 
@@ -860,6 +861,7 @@ void MessageViewBase::post_fin()
                           m_post->get_return_html(), "詳細" );
 
         ddiag.set_title( "書き込みエラー" );
+        ddiag.set_default_size( 600, 400 );
         ddiag.run();
     }
 }

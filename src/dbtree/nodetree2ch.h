@@ -15,7 +15,7 @@ namespace DBTREE
     class NodeTree2ch : public NodeTree2chCompati
     {
         std::string m_org_url;  // 移転前のオリジナルURL
-        time_t m_since_time; // スレが立った時刻
+        [[maybe_unused]] std::time_t m_since_time; // スレが立った時刻
         int m_mode; // 読み込みモード
         int m_res_number_max; // 最大レス数
         std::size_t m_dat_volume_max{}; // 最大DATサイズ(KB)
@@ -30,8 +30,6 @@ namespace DBTREE
         std::size_t get_dat_volume_max() const noexcept override { return m_dat_volume_max; }
 
       protected:
-
-        char* process_raw_lines( std::string& rawlines ) override;
 
         void create_loaderdata( JDLIB::LOADERDATA& data ) override;
 

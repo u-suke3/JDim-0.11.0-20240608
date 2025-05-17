@@ -512,12 +512,27 @@ int MISC::utf32toutf8( const char32_t uch,  char* utf8str )
     }
 #ifdef _DEBUG
     else{
-        std::cout << "MISC::utf32toutf8 : invalid uch = " << uch << std::endl;
+        std::cout << "MISC::utf32toutf8 : invalid uch = " << MISC::utf32tostr( uch ) << std::endl;
     }
 #endif
 
     utf8str[byte] = 0;
     return byte;
+}
+
+
+/** @brief UTF-32 の値から Unicode のコードポイントを表す文字列("U+XXXX")を返す
+ *
+ * @param[in] uch Unicodeコードポイント
+ * @return "U+" プレフィックスを付けた 4〜6 桁の16進数値 (A〜F は大文字)。
+ * U+10000 未満の値は 4 桁にゼロ埋めする。
+ */
+std::string MISC::utf32tostr( const char32_t uch )
+{
+    std::string str( 11u, '\0' );
+    const auto length = std::snprintf( str.data(), 11u, "U+%04X", uch );
+    str.resize( length );
+    return str;
 }
 
 

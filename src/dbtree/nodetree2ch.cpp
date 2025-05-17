@@ -58,17 +58,6 @@ NodeTree2ch::~NodeTree2ch()
 }
 
 
-//
-// キャッシュに保存する前の前処理
-//
-// 先頭にrawモードのステータスが入っていたら取り除く
-//
-char* NodeTree2ch::process_raw_lines( std::string& rawlines )
-{
-    return NodeTree2chCompati::process_raw_lines( rawlines );
-}
-
-
 /** @brief 5chスレッドの拡張属性を取り出す
  *
  * @param[in] str スレのレス番号1(`>>1`)の本文テキストデータ
@@ -135,14 +124,14 @@ void NodeTree2ch::create_loaderdata( JDLIB::LOADERDATA& data )
         const std::string& url = ( m_mode == MODE_OLDURL ) ? m_org_url : get_url();
 
         if( ! regex.exec( "(https?://[^/]*)(/.*)/dat(/.*)\\.dat$", url, offset, icase, newline, usemigemo, wchar ) ) return;
-        const int id = std::atoi( regex.str( 3 ).c_str() + 1 );
 
         std::ostringstream ss;
 
-        // 過去ログURLの構築
+        // 過去ログURLの構築 (9桁のURLは2024年2月頃から上位4桁に移行しています)
         // スレIDが10桁の場合 -> https://サーバ/板ID/oyster/IDの上位4桁/ID.dat
-        // スレIDが 9桁の場合 -> https://サーバ/板ID/oyster/IDの上位3桁/ID.dat
-        ss << regex.str( 1 ) << regex.str( 2 ) << "/oyster/" << ( id / 1000000 ) << regex.str( 3 ) << ".dat";
+        // スレIDが 9桁の場合 -> https://サーバ/板ID/oyster/IDの上位4桁/ID.dat
+        const std::string id_high4 = regex.str( 3 ).substr( 1, 4 );
+        ss << regex.str( 1 ) << regex.str( 2 ) << "/oyster/" << id_high4 << regex.str( 3 ) << ".dat";
 
         // レジューム設定
         // DATを読み込んでいた場合はレジュームを有りにして、DATの未取得部分を追加するように処理する
@@ -211,7 +200,8 @@ void NodeTree2ch::receive_finish()
     // 更新チェックではない、オンラインの場合は過去ログ倉庫から取得出来るか試みる
     if( ! is_checking_update()
         && SESSION::is_online()
-        && ( get_code() == HTTP_REDIRECT || get_code() == HTTP_MOVED_PERM || get_code() == HTTP_NOT_FOUND )
+        && ( get_code() == HTTP_REDIRECT || get_code() == HTTP_MOVED_PERM || get_code() == HTTP_PERMANENT_REDIRECT
+             || get_code() == HTTP_NOT_FOUND )
         ){
 
 /*

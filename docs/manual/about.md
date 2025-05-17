@@ -22,8 +22,6 @@ JDimはGPLv2の下で公開されている [JD][] からforkしたソフトウ�
 
 **注意: 2023-07-11 からJDim本体で5chのスレ閲覧が可能になっています。**
 5ch.netのDATファイルへのアクセスが[開放][5ch-924]されていますが今後の動向に注意してください。
-また、デフォルト設定のユーザーエージェント(UA)のままでレスを書き込むとERRORになるため
-事前にwebブラウザなどのUAに設定変更してください。
 
 [5ch-924]: https://agree.5ch.net/test/read.cgi/operate/9240230711/
 
@@ -31,7 +29,7 @@ JDimはGPLv2の下で公開されている [JD][] からforkしたソフトウ�
 <a name="copyright"></a>
 ### 著作権
 © 2017-2019 [yama-natuki][]  
-© 2019-2024 [JDimproved project][repository]
+© 2019-2025 [JDimproved project][repository]
 
 パッチやファイルを取り込んだ場合、それらのコピーライトは「JDimproved project」に統一します。
 

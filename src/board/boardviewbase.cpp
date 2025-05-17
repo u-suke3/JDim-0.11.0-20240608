@@ -595,7 +595,16 @@ void BoardViewBase::update_columns()
         const int item = SESSION::get_item_board_col( num );
         if( item == ITEM_END ) break;
         switch( item ){
-            case ITEM_MARK: APPEND_COLUMN( m_col_mark, ITEM_NAME_MARK, m_columns.m_col_mark ); break;
+            case ITEM_MARK: {
+                    auto* col = Gtk::make_managed<Gtk::TreeViewColumn>( ITEM_NAME_MARK );
+                    auto* render_pixbuf = Gtk::make_managed<Gtk::CellRendererPixbuf>();
+                    col->pack_start( *render_pixbuf, false );
+                    col->add_attribute( *render_pixbuf, "gicon", 0 );
+                    col->set_sizing( Gtk::TREE_VIEW_COLUMN_FIXED );
+                    m_treeview.append_column( *col );
+                    m_col_mark = col;
+                }
+                break;
             case ITEM_ID: APPEND_COLUMN( m_col_id, ITEM_NAME_ID, m_columns.m_col_id ); break;
             case ITEM_BOARD: APPEND_COLUMN( m_col_board, ITEM_NAME_BOARD, m_columns.m_col_board ); break;
             case ITEM_NAME: APPEND_COLUMN( m_col_subject, ITEM_NAME_NAME, m_columns.m_col_subject ); break;
@@ -874,15 +883,21 @@ void BoardViewBase::slot_cell_data_markup( Gtk::CellRenderer* cell, const Gtk::T
 {
     Gtk::TreeModel::Row row = *it;
 
+    Gtk::CellRendererText* rentext = dynamic_cast<Gtk::CellRendererText*>( cell );
+
     // ハイライト色 ( 抽出状態 )
     if( row[ m_columns.m_col_drawbg ] ){
-        cell->property_cell_background() = CONFIG::get_color( COLOR_BACK_HIGHLIGHT_TREE );
-        cell->property_cell_background_set() = true;
+        rentext->property_foreground() = CONFIG::get_color( COLOR_CHAR_HIGHLIGHT_TREE );
+        rentext->property_foreground_set() = true;
+        rentext->property_cell_background() = CONFIG::get_color( COLOR_BACK_HIGHLIGHT_TREE );
+        rentext->property_cell_background_set() = true;
     }
 
-    else m_treeview.slot_cell_data( cell, it );
+    else {
+        rentext->property_foreground_set() = false;
+        m_treeview.slot_cell_data( cell, it );
+    }
 
-    Gtk::CellRendererText* rentext = dynamic_cast<Gtk::CellRendererText*>( cell );
     rentext->property_text() = "";
     rentext->property_markup() = row[ m_columns.m_col_subject ];
 }
@@ -894,15 +909,30 @@ void BoardViewBase::slot_cell_data_markup( Gtk::CellRenderer* cell, const Gtk::T
 //
 void BoardViewBase::slot_cell_data( Gtk::CellRenderer* cell, const Gtk::TreeModel::iterator& it )
 {
+    // scanbuild-19 のレポートを抑制するためnullチェックする
+    // warning: Called C++ object pointer is null [core.CallAndMessage]
+    if( ! cell ) return;
+
     Gtk::TreeModel::Row row = *it;
+    // Gio::Icon を表示するcell (ITEM_MARK)は CellRendererText にキャストできない、nullptr が返る
+    Gtk::CellRendererText* rentext = dynamic_cast<Gtk::CellRendererText*>( cell );
 
     // ハイライト色 ( 抽出状態 )
     if( row[ m_columns.m_col_drawbg ] ){
+        if( rentext ) {
+            rentext->property_foreground() = CONFIG::get_color( COLOR_CHAR_HIGHLIGHT_TREE );
+            rentext->property_foreground_set() = true;
+        }
         cell->property_cell_background() = CONFIG::get_color( COLOR_BACK_HIGHLIGHT_TREE );
         cell->property_cell_background_set() = true;
     }
 
-    else m_treeview.slot_cell_data( cell, it );
+    else {
+        if( rentext ) {
+            rentext->property_foreground_set() = false;
+        }
+        m_treeview.slot_cell_data( cell, it );
+    }
 }
 
 
@@ -1579,9 +1609,9 @@ bool BoardViewBase::operate_view( const int control )
             break;
         }
 
-        // ポップアップメニュー表示
+        // ポップアップメニューをビューの左上に表示
         case CONTROL::ShowPopupMenu:
-            show_popupmenu( "", true );
+            show_popupmenu( "", SKELETON::PopupMenuPosition::view_top_left );
             break;
 
         // 検索
@@ -2131,7 +2161,7 @@ bool BoardViewBase::slot_button_release( GdkEventButton* event )
     // 実行された場合は何もしない
     if( get_control().MG_wheel_end( event ) ) return true;
 
-    if( mg != CONTROL::None && enable_mg() ){
+    if( mg != CONTROL::NoOperation && enable_mg() ){
         operate_view( mg );
         return true;
     }
@@ -2182,7 +2212,7 @@ bool BoardViewBase::slot_button_release( GdkEventButton* event )
         // ポップアップメニューボタン
         else if( get_control().button_alloted( event, CONTROL::PopupmenuButton ) ){
 
-            show_popupmenu( "", false );
+            show_popupmenu( "", SKELETON::PopupMenuPosition::mouse_pointer );
         }
 
         else operate_view( get_control().button_press( event ) );
@@ -2216,7 +2246,7 @@ bool BoardViewBase::slot_key_press( GdkEventKey* event )
 {
     m_pressed_key = get_control().key_press( event );
 
-    if( m_pressed_key != CONTROL::None ){
+    if( m_pressed_key != CONTROL::NoOperation ){
 
         // キー入力でスレを開くとkey_releaseイベントがboadviewが画面から
         // 消えてから送られてWIDGET_REALIZED_FOR_EVENT assertionが出るので
@@ -2261,7 +2291,7 @@ bool BoardViewBase::slot_scroll_event( GdkEventScroll* event )
 {
     // ホイールマウスジェスチャ
     const int control = get_control().MG_wheel_scroll( event );
-    if( enable_mg() && control != CONTROL::None ){
+    if( enable_mg() && control != CONTROL::NoOperation ){
         operate_view( control );
         return true;
     }
@@ -2446,7 +2476,9 @@ void BoardViewBase::write()
 //
 void BoardViewBase::delete_view()
 {
-    show_popupmenu( "popup_menu_delete", false );
+    // IDに紐づけたツールバーボタンを取得してポップアップメニューの表示位置に指定します。
+    show_popupmenu( "popup_menu_delete", SKELETON::PopupMenuPosition::toolbar_button,
+                    get_admin()->get_anchor_widget( kToolbarWidgetDelete ) );
 }
 
 
@@ -2455,7 +2487,8 @@ void BoardViewBase::delete_view()
 //
 void BoardViewBase::set_favorite()
 {
-    show_popupmenu( "popup_menu_favorite", false );
+    show_popupmenu( "popup_menu_favorite", SKELETON::PopupMenuPosition::toolbar_button,
+                    get_admin()->get_anchor_widget( kToolbarWidgetFavoriteAdd ) );
 }
 
 
@@ -3017,9 +3050,10 @@ void BoardViewBase::slot_search_next()
 }
 
 
-//
-// 選択したスレをあぼーん
-//
+/** @brief 選択したスレをあぼーん
+ *
+ * @details NG スレタイトルは未変換のスレタイトルで比較します。
+ */
 void BoardViewBase::slot_abone_thread()
 {
     std::list< Gtk::TreeModel::iterator > list_it = m_treeview.get_selected_iterators();
@@ -3029,8 +3063,9 @@ void BoardViewBase::slot_abone_thread()
 
     for( const Gtk::TreeModel::iterator& iter : list_it ) {
         Gtk::TreeModel::Row row = *iter;
-        Glib::ustring subject = row[ m_columns.m_col_subject ];
-        threads.push_back( subject );
+        if( const DBTREE::ArticleBase* art = row[ m_columns.m_col_article ]; art ) {
+            threads.push_back( art->get_subject() );
+        }
     }
 
     // あぼーん情報更新

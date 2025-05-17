@@ -1,0 +1,96 @@
+# SPDX-License-Identifier: FSFAP
+name: Weekly CI
+
+on:
+  schedule:
+      # Each Monday, on 00:00 UTC
+      - cron: '0 0 * * 1'
+  workflow_dispatch:
+
+jobs:
+
+  Unity-build-gcc14-Werror:
+    runs-on: ubuntu-24.04
+    env:
+      CC: gcc-14
+      CXX: g++-14
+    steps:
+      - uses: actions/checkout@v4
+      - name: dependencies installation
+        run: |
+          sudo apt update
+          sudo apt install libgnutls28-dev libgtest-dev libgtkmm-3.0-dev meson zlib1g-dev g++-14
+      - run: meson setup builddir -Dunity=on -Dunity_size=1000 -Dbuildtype=debug -Dcpp_args="-D_DEBUG" -Dwerror=true
+      - run: ninja -C builddir -k0
+      - run: meson test -v -C builddir
+      - run: ./builddir/src/jdim -V
+
+  Unity-build-clang18-Werror:
+    runs-on: ubuntu-24.04
+    env:
+      CC: clang-18
+      CXX: clang++-18
+    steps:
+      - uses: actions/checkout@v4
+      - name: dependencies installation
+        run: |
+          sudo apt update
+          sudo apt install libgnutls28-dev libgtest-dev libgtkmm-3.0-dev meson zlib1g-dev clang-18
+      - run: meson setup builddir -Dunity=on -Dunity_size=1000 -Dbuildtype=debug -Dcpp_args="-D_DEBUG" -Dwerror=true
+      - run: ninja -C builddir -k0
+      - run: meson test -v -C builddir
+      - run: ./builddir/src/jdim -V
+
+  Unity-build-gcc14-with-options-Werror:
+    runs-on: ubuntu-24.04
+    env:
+      CC: gcc-14
+      CXX: g++-14
+    steps:
+      - uses: actions/checkout@v4
+      - name: dependencies installation
+        run: |
+          sudo apt update
+          sudo apt install g++-14 libasound2-dev libgtest-dev libgtkmm-3.0-dev libmigemo-dev libssl-dev meson zlib1g-dev
+      - run: meson setup builddir -Dunity=on -Dunity_size=1000 -Dbuildtype=debug -Dcpp_args="-D_DEBUG" -Dalsa=enabled -Dmigemo=enabled -Dtls=openssl -Dcompat_cache_dir=disabled -Dsessionlib=no -Dwerror=true
+      - run: ninja -C builddir -k0
+      - run: meson test -v -C builddir
+      - run: ./builddir/src/jdim -V
+
+  muon-master:
+    runs-on: ubuntu-24.04
+    env:
+      CC: gcc-13
+      CXX: g++-13
+    steps:
+      - uses: actions/checkout@v4
+      - name: dependencies installation
+        run: |
+          sudo apt update
+          sudo apt install git libgnutls28-dev libpkgconf-dev libgtest-dev libgtkmm-3.0-dev zlib1g-dev g++-13
+      - run: |
+          git clone --depth 1 https://git.sr.ht/~lattis/muon muon-src
+      - run: git -C muon-src log -n1
+        # Since 2024-11-03 07:27:25 -0500 (6ec469bb42), bootstrapping has used muon-bootstrap as exe name.
+      - name: build muon stage1
+        run: |
+          cd muon-src
+          ./bootstrap.sh stage1
+          ./stage1/muon-bootstrap version
+          cd ..
+      - name: build muon stage2
+        run: |
+          cd muon-src
+          ./stage1/muon-bootstrap setup -Dman-pages=disabled -Dmeson-docs=disabled -Dmeson-tests=disabled -Dlibarchive=disabled -Dlibcurl=disabled -Dlibpkgconf=enabled ../muon-build
+          ./stage1/muon-bootstrap samu -C ../muon-build
+          cd ..
+      - run: ./muon-build/muon version
+      - run: ./muon-build/muon setup -Dcompat_cache_dir=disabled jdim-build
+        # Use embedded samurai instead of ninja
+      - run: ./muon-build/muon samu -C jdim-build -k0
+      - name: muon test
+        run: |
+          cd jdim-build
+          ../muon-build/muon test -v
+          cd ..
+      - run: ./jdim-build/src/jdim -V

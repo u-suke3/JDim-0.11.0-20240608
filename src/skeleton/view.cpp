@@ -9,6 +9,7 @@
 #include "config/globalconf.h"
 #include "history/historymanager.h"
 #include "jdlib/miscgtk.h"
+#include "jdlib/miscmsg.h"
 
 #include "global.h"
 #include "session.h"
@@ -185,8 +186,13 @@ bool View::is_mouse_on_view() const
 
 
 
-// ポップアップメニュー表示
-void View::show_popupmenu( const std::string& url, bool use_slot )
+/** @brief ポップアップメニューを指定位置に表示する
+ *
+ * @param[in] url           ビューのURL、またはメニューを識別するID文字列
+ * @param[in] position      ポップアップメニューの表示位置
+ * @param[in] anchor_widget メニューの表示位置に指定するウィジェット
+ */
+void View::show_popupmenu( const std::string& url, PopupMenuPosition position, Gtk::Widget* anchor_widget )
 {
     // ポップアップメニューを表示する前にメニューのアクティブ状態を切り替える
     activate_act_before_popupmenu( url );
@@ -204,22 +210,30 @@ void View::show_popupmenu( const std::string& url, bool use_slot )
             popupmenu->signal_hide().connect( sigc::mem_fun( *this, &View::slot_hide_popupmenu ) );
         }
 
-        if( use_slot ) popupmenu->popup( sigc::mem_fun( *this, &View::slot_popup_menu_position ), 0, gtk_get_current_event_time() );
-        else popupmenu->popup( 0, gtk_get_current_event_time() );
+        if( position == PopupMenuPosition::view_top_left ) {
+            // viewの左上とメニューの左上を揃える
+            // メニューのサイズが大きく、ディスプレイの外にはみ出す場合でも、
+            // 自動的に画面内に収まるように調整します。
+            popupmenu->popup_at_widget( this, Gdk::GRAVITY_NORTH_WEST, Gdk::GRAVITY_NORTH_WEST, nullptr );
+        }
+        else if( position == PopupMenuPosition::mouse_pointer ) {
+            // 現在のイベントに関連するマウスポインターの座標にメニューを表示する
+            // nullptr を渡すことで現在のイベントから自動的に座標を取得します。
+            popupmenu->popup_at_pointer( nullptr );
+        }
+        else if( position == PopupMenuPosition::toolbar_button && anchor_widget ) {
+            // anchor_widgetの右下とメニューの右上を揃える
+            // メニューのサイズが大きく、ディスプレイの外にはみ出す場合でも、
+            // 自動的に画面内に収まるように調整します。
+            popupmenu->popup_at_widget( anchor_widget, Gdk::GRAVITY_SOUTH_EAST, Gdk::GRAVITY_NORTH_EAST, nullptr );
+        }
+        else {
+            std::string errmsg = "View::show_popupmenu: Incorrect argument value: position=";
+            errmsg.append( std::to_string( static_cast<int>( position ) ) );
+            errmsg.append( static_cast<bool>( anchor_widget ) ? ", with anchor" : "without anchor" );
+            MISC::ERRMSG( errmsg );
+        }
     }
-}
-
-
-// ポップアップメニュー表示時に表示位置を決めるスロット
-void View::slot_popup_menu_position( int& x, int& y, bool& push_in)
-{
-    // viewの左上の座標をセットする
-    int x2, y2;
-    get_window()->get_position( x, y );
-    translate_coordinates( *dynamic_cast< Gtk::Widget* >( get_toplevel() ), 0, 0, x2, y2 );
-    x += x2;
-    y += y2;
-    push_in = false;
 }
 
 
@@ -263,4 +277,28 @@ std::string View::get_color() const
     else if( is_overflow() ) return "green";
 
     return "";
+}
+
+
+/** @brief 最小の幅と自然な幅の初期値を取得する
+ *
+ * @param[out] minimum_width ウィジェットの最小の幅
+ * @param[out] natural_width ウィジェットの自然な幅
+ */
+void View::get_preferred_width_vfunc( int& minimum_width, int& natural_width ) const
+{
+    minimum_width = 0;
+    natural_width = width_client();
+}
+
+
+/** @brief 最小の高さと自然な高さの初期値を取得する
+ *
+ * @param[out] minimum_width ウィジェットの最小の高さ
+ * @param[out] natural_width ウィジェットの自然な高さ
+ */
+void View::get_preferred_height_vfunc( int& minimum_height, int& natural_height ) const
+{
+    minimum_height = 0;
+    natural_height = height_client();
 }

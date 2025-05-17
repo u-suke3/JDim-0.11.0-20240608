@@ -62,6 +62,7 @@ namespace CONTROL
         TabNum7,
         TabNum8,
         TabNum9,
+        TabLast,
 
         CloseAllTabs,
         CloseOtherTabs,
@@ -315,7 +316,7 @@ namespace CONTROL
 
         // その他
         CancelMG,
-        None,
+        NoOperation,
 
         CONTROL_END
     };

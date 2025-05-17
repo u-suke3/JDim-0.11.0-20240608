@@ -11,6 +11,13 @@
 
 namespace SKELETON
 {
+    /// @brief ポップアップメニューの表示位置
+    enum class PopupMenuPosition {
+        mouse_pointer, ///< マウスポインターの位置
+        view_top_left, ///< ビューの左上
+        toolbar_button, ///< ツールバーボタンの下
+    };
+
     class Admin;
 
     // 自分がポップアップviewの時に(ポップアップウィンドウ( SKELETON::PopupWin ) 経由で)
@@ -153,11 +160,8 @@ namespace SKELETON
         // 数字入力ジャンプ用に sig_key_press() から呼び出す
         bool release_keyjump_key( int key );
 
-        // ポップアップメニュー表示
-        void show_popupmenu( const std::string& url, bool use_slot = false );
-
-        // ポップアップメニュー表示時に表示位置を決めるスロット
-        void slot_popup_menu_position( int& x, int& y, bool& push_in );
+        // ポップアップメニューを指定位置に表示する
+        void show_popupmenu( const std::string& url, PopupMenuPosition position, Gtk::Widget* anchor_widget = nullptr );
 
         // ポップアップメニューがmapした時に呼び出されるスロット
         void slot_map_popupmenu();
@@ -170,6 +174,9 @@ namespace SKELETON
 
         //  ポップアップメニュー取得
         virtual Gtk::Menu* get_popupmenu( const std::string& url ){ return nullptr; }
+
+        void get_preferred_width_vfunc( int& minimum_width, int& natural_width ) const override;
+        void get_preferred_height_vfunc( int& minimum_height, int& natural_height ) const override;
 
     public:
 

@@ -1359,7 +1359,9 @@ void NodeTreeBase::receive_finish()
         std::ostringstream err;
         err << m_url << std::endl
             << "load failed. : " << get_str_code();
-        if( get_code() == HTTP_MOVED_PERM || get_code() == HTTP_REDIRECT ) err << " location = " << location();
+        if( get_code() == HTTP_MOVED_PERM || get_code() == HTTP_REDIRECT || get_code() == HTTP_PERMANENT_REDIRECT ) {
+            err << " location = " << location();
+        }
         MISC::ERRMSG( err.str() );
     }
 
@@ -1436,9 +1438,11 @@ void NodeTreeBase::add_raw_lines( std::string& buffer_lines )
     }
 
     // 保存前にrawデータを加工
-    char* rawlines = process_raw_lines( buffer_lines );
+    // process_raw_lines() は不要になったため直接 data() を呼び出しています。
+    char* rawlines = buffer_lines.data();
 
-    size_t lng = strlen( rawlines );
+    // NOTE: lng の値は、 std::strlen(rawlines) ですが、加工が不要なため長さ計算を省略しています。
+    std::size_t lng = buffer_lines.size();
     if( ! lng ) return;
 
     // サーバが range を無視してデータを送ってきたときのレジューム処理
@@ -2402,7 +2406,7 @@ create_multispace:
                 ){
 
                 pos += 4;
-                m_parsed_text.append( u8"\u30FB" ); // KATAKANA MIDDLE DOT
+                m_parsed_text.append( "\u30FB" ); // KATAKANA MIDDLE DOT
             }
 
             // 水平線 <HR>

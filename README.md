@@ -37,14 +37,14 @@
 JDim (JD improved) は gtkmm/GTK+ を使用した"２ちゃんねる"型マルチスレッドBBSを閲覧するためのブラウザです。
 JDim は GPLv2 の下で公開されている [JD][jd-project] からforkしたソフトウェアであり、
 ルック・アンド・フィールや環境設定は JD と互換性があります。
+(JDim projectを立ち上げた経緯については [Issue 15][issue15] を参照してください)
 
 **注意: 2023-07-11 からJDim本体で5chのスレ閲覧が可能になっています。**
 5ch.netのDATファイルへのアクセスが[開放][5ch-924]されていますが今後の動向に注意してください。
-また、デフォルト設定のユーザーエージェント(UA)のままでレスを書き込むとERRORになるため
-事前にwebブラウザなどのUAに設定変更してください。
 
-[jd-project]: https://jd4linux.osdn.jp/
+[jd-project]: https://ja.osdn.net/projects/jd4linux/
 [5ch-924]: https://agree.5ch.net/test/read.cgi/operate/9240230711/
+[issue15]: https://github.com/JDimproved/JDim/issues/15
 
 
 ## 動作プラットフォーム
@@ -52,8 +52,8 @@ JDim は GPLv2 の下で公開されている [JD][jd-project] からforkした�
 LinuxなどのUnixライクなOS(FreeBSD,OpenBSD,Nexenta,MacOSXでも動作報告例があります)。
 
 ##### サポートの最新情報
-gccのバージョンが9未満のプラットフォームはサポートを終了しました。
-Ubuntu 20.04(2020年)より前にリリースされたディストリビューションを利用されている場合は更新をお願いいたします。
+gccのバージョンが10未満のプラットフォームはサポートを終了しました。
+Debian bullseye(2021年)より前にリリースされたディストリビューションを利用されている場合は更新をお願いいたします。
 
 メンテナンスの都合によりWindows(MinGW)版のサポートは[終了][#445]しました。
 
@@ -66,7 +66,7 @@ i386版ディストロを利用されている場合は更新をお願いいた�
 
 ## 導入方法
 
-ソースコードからJDimをビルドします。**GTK3版がビルド**されますのでご注意ください。
+ソースコードからJDimをビルドします。
 詳細は [INSTALL](./INSTALL) にも書いてあります。
 
 **Autotools(./configure)のサポートは2023年7月のリリースをもって廃止されました。
@@ -95,7 +95,7 @@ sudo apt update
 sudo apt build-dep jdim
 ```
 
-#### Ubuntu (20.04以降)
+#### Ubuntu (22.04以降)
 開発環境が入っていない場合は、
 
 ```sh
@@ -149,26 +149,11 @@ OSやディストリビューション別の解説は [GitHub Discussions][dis59
 
 [Unity build]: https://mesonbuild.com/Unity-builds.html
 
-* **CPUに合わせた最適化**
-
-  `meson`を実行するときにCPUの種類(`-march=ARCH`や`-mcpu=CPU`)を`-Dcpp_args`に設定します。
-  ###### 例 (第2世代Coreプロセッサー)
-  ```sh
-  meson setup builddir -Dcpp_args="-march=sandybridge" -Doptimization=2
-  ```
-
-  マシンのCPUは下のコマンドで調べることができます。([GCCの最適化][gentoo-gcc] - Gentoo Wikiより)
-  ```sh
-  gcc -Q -c -march=native --help=target -o /dev/null | grep "march\|mtune\|mcpu"
-  ```
-
-[gentoo-gcc]: https://wiki.gentoo.org/wiki/GCC_optimization/ja#-march
-
 <a name="crash-with-asan"></a>
 * **AddressSanitizer(ASan) を有効にするときの注意**
 
-  gcc(バージョン10以降)を使いASanを有効にしてビルドすると
-  書き込みのプレビューで[トリップ][trip]を表示するときにクラッシュすることがある。
+  gcc(バージョン10から13まで)を使いASanを有効にしてビルドすると
+  書き込みのプレビューで[トリップ][trip]を表示するときにクラッシュすることがあります。
   詳細は <https://github.com/JDimproved/JDim/issues/943> を参照。
 
   #### ASanを有効にするときクラッシュを回避する方法
@@ -192,7 +177,7 @@ OSやディストリビューション別の解説は [GitHub Discussions][dis59
 * **AddressSanitizer(ASan) を有効にするときの注意 その2**
 
   Ubuntu 22.04(23.10でも確認)の環境でASanを有効にしてビルドしたプログラムを実行すると
-  `AddressSanitizer:DEADLYSIGNAL`を出力し続けてハングアップすることがある。([#1363 (comment)][#1363])
+  `AddressSanitizer:DEADLYSIGNAL`を出力し続けてハングアップすることがあります。([#1363 (comment)][#1363])
 
   #### ASanを有効したプログラムでハングアップを回避する方法
 
@@ -288,8 +273,10 @@ NOTE:
 -m, --multi | 多重起動時のサブプロセスであっても終了しない
 -s, --skip-setup | 初回起動時の設定ダイアログを表示しない
 -l, --logfile | エラーなどのメッセージをファイル(キャッシュディレクトリのlog/msglog)に出力する
--g, --geometry WxH-X+Y | 幅(W)高さ(H)横位置(X)縦位置(Y)の指定。WxHは省略可能(例: -g 100x40-10+30, -g -20+100 )
+-g, --geometry WxH-X+Y | 幅(W)高さ(H)横位置(X)縦位置(Y)の指定。WxHは省略可能(例: -g 100x40-10+30, -g -20+100 ) ※
 -V, --version | バージョン及びビルドオプションを全て表示
+
+※ Wayland環境で起動したときは `-g`, `--geometry` で位置を指定しても反映されません。([Issue #1450][#1450]を参照)
 
 
 ## 多重起動について
@@ -302,13 +289,9 @@ NOTE:
 <a name="precaution"></a>
 ## 実行時の注意事項
 
-廃止されたGTK2版同様のルック・アンド・フィールになるように実装していますが、
-技術的な問題やテスト不足から完全な再現はできていません。
-もしお気づきの点などがございましたらご指摘いただけると幸いです。
-
 ### Wayland対応
 JDim はWayland環境で起動しますが動作は安定していません。
-GTKのバックエンドにWaylandを使うかわりに互換レイヤーのXWaylandをインストールして使うことをお薦めします。
+GTKのバックエンドにWaylandを使うかわりに互換レイヤーのXWaylandをインストールして使用することをおすすめします。
 環境変数 `GDK_BACKEND=x11` を設定してjdimを起動してください。
 ```sh
 # シェルからJDimを起動する場合
@@ -317,29 +300,38 @@ GDK_BACKEND=x11 ./src/jdim
 
 WaylandやXWaylandではX11限定の機能を使うことができないため注意してください。
 
-### GTK2版から変更/追加された部分
-* GTK+ 3.14以上の環境でタッチスクリーンによる操作に対応した。
-  スレビューのタッチ操作については[マニュアル][manual-touch]を参照。
-* 書き込みビューの配色にGTKテーマを使う設定が追加された。
-  1. メニューバーの`設定(C) > フォントと色(F) > 詳細設定(R)...`からフォントと色の詳細設定を開く
-  2. `色の設定`タブにある`書き込みビューの配色設定に GTKテーマ を用いる(W)`をチェックして適用する
-* GTK 3.16以上の環境で書き込みビューのダブルクリックによる単語の範囲選択、
-  トリプルクリックによる行の範囲選択に対応した。
+* Wayland環境では about:config の「自前でウィンドウ配置を管理する」の設定に関係なく、
+  ウインドウ（メイン、書き込みビュー、画像ビュー）の位置を復元しません。([Issue #1450][#1450]を参照)
+* ~~Waylandでは、ウインドウ最大化を解除したときのウインドウのサイズは、最大化する前のサイズと異なる可能性があります。~~
+  この問題は[PR #1500][#1500]で修正済みです。
+* Waylandでは、親ウインドウから子ウインドウのポップアップを表示する際、一度に1つしか表示できません。
+  そのため、スレビューのポップアップ表示中にメインウインドウのツールチップを同時に表示することはできません。
 
-[manual-touch]: https://jdimproved.github.io/JDim/operation/#threadview_touch "操作方法について | JDim"
+[#1450]: https://github.com/JDimproved/JDim/issues/1450
+[#1500]: https://github.com/JDimproved/JDim/issues/1500
 
 ### 既知の問題
-* タブのドラッグ・アンド・ドロップの矢印ポップアップの背景が透過しない環境がある。
+* タブのドラッグ・アンド・ドロップの矢印ポップアップの背景が透過しない環境があります。
   (アルファチャンネルが利用できない環境)
-* Wayland上で起動したときポップアップ内のアンカーからポップアップを出すとマウスポインターから離れた位置に表示される。
-* Weston(Waylandコンポジタ)環境でXWaylandをバックエンドに指定して起動した場合、右クリックしながらポップアップ内に
-  マウスポインターを動かすとポップアップ内容ではなくポップアップに隠れたスレビューに反応する。
-* Wayland環境では画像ビュー(ウインドウ表示)のフォーカスが外れたら折りたたむ機能が正常に動作しない。
-* gcc(バージョン10以降)を使いAddressSanitizer(ASan)を有効にしてビルドすると
-  書き込みのプレビューでトリップを表示するときにクラッシュすることがある。([上記](#crash-with-asan)を参照)
+* ~~Waylandで多段ポップアップを表示すると、マウスポインターから離れた位置に表示されることがあります。~~
+  この問題は[PR #1472][#1472]で修正済みです。
+* ~~Weston(Waylandコンポジタ)環境でXWaylandをバックエンドに指定して起動した場合、右クリックしながらポップアップ内に
+  マウスポインターを動かすとポップアップ内容ではなくポップアップに隠れたスレビューに反応します。~~
+  Weston 13.0.3 で確認したところ、ポップアップ内容に反応するようになっています。
+* Wayland環境では画像ビュー(ウインドウ表示)のフォーカスが外れたら折りたたむ機能が正常に動作しません。
+  この問題は[PR #1498][#1498]で修正しましたが、Westonでは折りたたむ動作が意図した通りに発動しない場合があります。
+* WestonでWaylandをバックエンドに指定して起動した場合、ポップアップ内で右クリックするとプログラムがクラッシュする場合があります。
+* gcc(バージョン10から13まで)を使いAddressSanitizer(ASan)を有効にしてビルドすると
+  書き込みのプレビューでトリップを表示するときにクラッシュすることがあります。([上記](#crash-with-asan)を参照)
 * Ubuntu 22.04(23.10でも確認)の環境でASanを有効にしてビルドしたプログラムを実行すると
-  `AddressSanitizer:DEADLYSIGNAL`を出力し続けてハングアップすることがある。([上記](#hungup-with-asan)を参照)
+  `AddressSanitizer:DEADLYSIGNAL`を出力し続けてハングアップすることがあります。([上記](#hungup-with-asan)を参照)
+* Waylandでは、多段ポップアップ表示中にマウスポインターをポップアップ外に移動しても、ポップアップが消えない場合があります。
+  この場合、Escキーを押すことでポップアップを閉じることができます。
+* アプリケーションの外部で GTK テーマを変更すると、板のプロパティ内のローカルルールなどの配色が更新されません。
+  この場合、JDim を再起動するか、フォントと色の詳細設定で「色の設定を全てデフォルトに戻す」を選択すると色が更新されます。
 
+[#1472]: https://github.com/JDimproved/JDim/issues/1472
+[#1498]: https://github.com/JDimproved/JDim/pull/1498
 
 ## JDとの互換性
 
@@ -366,7 +358,7 @@ JDimで追加された不具合や機能の修正については[Pull requests][
 ## 著作権
 
 © 2017-2019 yama-natuki [https://github.com/yama-natuki/JD]  
-© 2019-2024 JDimproved project [https://github.com/JDimproved/JDim]
+© 2019-2025 JDimproved project [https://github.com/JDimproved/JDim]
 
 パッチやファイルを取り込んだ場合、それらのコピーライトは「JDimproved project」に統一します。
 

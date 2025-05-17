@@ -15,22 +15,23 @@
 // SEE ALSO: ENVIRONMENT::get_jdversion()
 
 #define MAJORVERSION 0
-#define MINORVERSION 11
+#define MINORVERSION 14
 #define MICROVERSION 0
-#define JDDATE_FALLBACK    "20240406"
-#define JDTAG     ""
+#define JDDATE_FALLBACK    "20250403"
+#define JDTAG     "alpha"
 
 //---------------------------------
 
 #define JDCOMMENT "JDim (JD improved) は gtkmm/GTK+ を用いた2chブラウザです。"
 #define JDCOPYRIGHT "(c) 2006-2015 JD project" "\n" \
                     "(c) 2017-2019 yama-natuki" "\n" \
-                    "(c) 2019-2024 JDimproved project"
+                    "(c) 2019-2025 JDimproved project"
 #define JDBBS CONFIG::get_url_jdhp()+"cgi-bin/bbs/support/"
 #define JD2CHLOG CONFIG::get_url_jdhp()+"old2ch/"
 #define JDHELP "https://jdimproved.github.io/JDim/"
 #define JDHELPCMD JDHELP "usrcmd/"
 #define JDHELPREPLSTR JDHELP "replacestr/"
+#define JDHELPIMGHASH JDHELP "imghash/"
 
 // [ ライセンス表記 ]
 //

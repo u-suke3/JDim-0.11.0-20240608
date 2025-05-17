@@ -39,10 +39,10 @@ JDWinMain::JDWinMain( const bool init, const bool skip_setupdiag,
 
     // アイコンをセット
     std::vector< Glib::RefPtr< Gdk::Pixbuf > > list_icons;
-    list_icons.push_back( ICON::get_icon( ICON::JD16 ) );
-    list_icons.push_back( ICON::get_icon( ICON::JD32 ) );
-    list_icons.push_back( ICON::get_icon( ICON::JD48 ) );
-    list_icons.push_back( ICON::get_icon( ICON::JD96 ) );
+    list_icons.push_back( ICON::get_pixbuf( ICON::JD16 ) );
+    list_icons.push_back( ICON::get_pixbuf( ICON::JD32 ) );
+    list_icons.push_back( ICON::get_pixbuf( ICON::JD48 ) );
+    list_icons.push_back( ICON::get_pixbuf( ICON::JD96 ) );
     Gtk::Window::set_default_icon_list( list_icons );
 
     // セッション回復
@@ -307,7 +307,7 @@ bool JDWinMain::on_button_release_event( GdkEventButton* event )
     const int mg = m_control.MG_end( event );
 
     // マウスジェスチャ
-    if( mg != CONTROL::None ) operate_win( mg );
+    if( mg != CONTROL::NoOperation ) operate_win( mg );
 
     return ret;
 }
