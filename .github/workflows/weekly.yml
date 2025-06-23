@@ -2,10 +2,10 @@
 name: Weekly CI
 
 on:
-  schedule:
+  #schedule:
       # Each Monday, on 00:00 UTC
-      - cron: '0 0 * * 1'
-  workflow_dispatch:
+      #- cron: '0 0 * * 1'
+  #workflow_dispatch:
 
 jobs:
 
